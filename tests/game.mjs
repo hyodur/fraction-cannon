@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {makeQuestion,isCorrect,publicQuestion} from '../lib/questions.ts';
-import {initialBlocks,simulateShot,difficulty,score,SHELF,FALL_CLEAR_Y} from '../lib/physics.ts';
+import {initialBlocks,simulateShot,difficulty,score,SHELF,FALL_CLEAR_Y,blockProperties} from '../lib/physics.ts';
 import {playbackPosition} from '../lib/playback.ts';
 assert.deepEqual(playbackPosition(99,100,80),{index:0,done:false});
 assert.deepEqual(playbackPosition(0,100,0),{index:-1,done:true});
@@ -20,10 +20,10 @@ assert.equal(direct.frames[11].ball,undefined);
 let supported=initialBlocks(1);
 supported=simulateShot(supported,1).blocks;
 if(supported.some(b=>b.id===2))supported=simulateShot(supported,2).blocks;
-assert(supported.length<5,'Removing supports must collapse the upper stack');
+assert(supported.some(b=>b.id>3&&b.y>380)||supported.length<5,'Unsupported upper blocks must fall, even if caught by the shelf');
 const topShot=simulateShot(initialBlocks(1),9),lowerShot=simulateShot(initialBlocks(1),1);
 assert.equal(topShot.cleared,1,'A top shot should only knock off the top block');
-assert(lowerShot.cleared>topShot.cleared,'Removing a lower support should cause a cascade');
+assert(lowerShot.blocks.filter(b=>b.id>3&&b.y>initialBlocks(1).find(original=>original.id===b.id).y+30).length>=3||lowerShot.cleared>topShot.cleared,'A missing support must disturb the upper stack without forced deletion');
 assert.equal(topShot.frames[11].blocks.length,9,'Impact must not delete a block');
 assert.equal(topShot.frames[11].blocks.find(b=>b.id===9).hp,0,'A fully damaged block still falls visibly');
 function verifyFalls(result){
@@ -36,6 +36,20 @@ function verifyFalls(result){
  }
 }
 verifyFalls(topShot);verifyFalls(lowerShot);
+// Isolated airborne blocks remove contact friction from the comparison.
+// Damage must not alter the shot impulse, spin, mass, gravity or air drag.
+const airborne={id:1,x:690,y:40,w:56,h:36,a:0,hp:3,maxHp:3,material:2};
+const motion=b=>({x:b.x,y:b.y,vx:b.vx,vy:b.vy,va:b.va,a:b.a});
+const damageFlights=[1,2,3].map(hp=>simulateShot([{...airborne,hp}],1));
+for(const flight of damageFlights)for(const index of [10,11,15])assert.deepEqual(motion(flight.frames[index].blocks[0]),motion(damageFlights[0].frames[index].blocks[0]));
+const light=simulateShot([{...airborne,material:0}],1),heavy=simulateShot([{...airborne,material:3}],1);
+assert(Math.abs(light.frames[11].blocks[0].vx)>Math.abs(heavy.frames[11].blocks[0].vx),'Equal shots move lighter blocks more');
+assert.deepEqual(simulateShot(initialBlocks(1),1),simulateShot(initialBlocks(1),1),'Identical states and shots must replay identically');
+for(let material=0;material<4;material++){
+ const maxHp=material+1,properties=Array.from({length:maxHp+1},(_,hp)=>blockProperties({...airborne,material,hp,maxHp}));
+ for(let hp=1;hp<=maxHp;hp++)assert(properties[hp].friction>properties[hp-1].friction);
+ assert(properties.every(p=>p.frictionAir===properties[0].frictionAir&&p.density===properties[0].density));
+}
 let count=0;
 for(let s=1;s<=12;s++) for(let l=1;l<=3;l++) for(let seed=1;seed<=80;seed++){
  const q=makeQuestion(s,l,seed); assert(isCorrect(q,q.answer),JSON.stringify(q)); assert(!('answer' in publicQuestion(q)));assert(!('explanation' in publicQuestion(q)));assert(!isCorrect(q,'999/0'));assert(!isCorrect(q,'NaN'));assert(!q.prompt.includes('없음'));assert(q.hints.length===2);
