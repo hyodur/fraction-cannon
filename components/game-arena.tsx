@@ -38,13 +38,16 @@ export function GameArena({blocks,target,ball,bursts,locked,animating,topic,onSe
   <path d="M822 400 L842 376 V405 L822 430Z" fill="#415775"/>
   <path d="M184 405 H816" stroke="#88a1bf" strokeWidth="5"/>
   <g className="block-stack">
-  {[...blocks].sort((a,b)=>a.y-b.y||a.x-b.x).map(b=>{
+  {/* Paint supports before the blocks resting on them. Otherwise a support's
+      top face covers the upper block and makes the stack look recessed.
+      Ignore subpixel settling differences when ordering neighbors in a row. */}
+  {[...blocks].sort((a,b)=>Math.round(b.y/2)-Math.round(a.y/2)||b.x-a.x).map(b=>{
    const p=project(b.x,b.y),w=b.w*1.4,h=b.h*1.18,c=colors[b.material],lv=difficulty(b),isTarget=b.id===target;
    return <g key={b.id} role="button" aria-label={`${b.id}번 ${MATERIALS[b.material]} 블록, ${levels[lv]}, 남은 단단함 ${b.hp}`} aria-pressed={isTarget} aria-disabled={locked} tabIndex={locked?-1:0}
     onClick={()=>{if(!locked)onSelect(b)}} onKeyDown={e=>{if((e.key==="Enter"||e.key===" ")&&!locked){e.preventDefault();onSelect(b)}}}
     style={{cursor:locked?"default":"crosshair"}} transform={`translate(${p.x} ${p.y}) rotate(${b.a*180/Math.PI})`}>
-    <path d={`M${-w/2} ${-h/2} l12 -14 h${w} l-12 14Z`} fill={c.top} stroke={c.edge} strokeWidth="1.5"/>
-    <path d={`M${w/2} ${-h/2} l12 -14 v${h} l-12 14Z`} fill={c.side} stroke={c.edge} strokeWidth="1.5"/>
+    <path d={`M${-w/2} ${-h/2} l8 -9 h${w} l-8 9Z`} fill={c.top} stroke={c.edge} strokeWidth="1.5"/>
+    <path d={`M${w/2} ${-h/2} l8 -9 v${h} l-8 9Z`} fill={c.side} stroke={c.edge} strokeWidth="1.5"/>
     <rect className="block-face" x={-w/2} y={-h/2} width={w} height={h} rx="3" fill={c.front} stroke={isTarget?"#2857ed":c.edge} strokeWidth={isTarget?5:2}/>
     <path d={`M${-w/2+6} ${-h/2+6} H${w/2-6}`} stroke={c.top} strokeWidth="3"/>
     {b.material===1?<path d={`M${-w/2+8} ${-h/2} v${h} M${w/2-8} ${-h/2} v${h}`} stroke="#815431" strokeWidth="4" opacity=".6"/>:null}
