@@ -54,6 +54,12 @@ let count=0;
 for(let s=1;s<=12;s++) for(let l=1;l<=3;l++) for(let seed=1;seed<=80;seed++){
  const q=makeQuestion(s,l,seed); assert(isCorrect(q,q.answer),JSON.stringify(q)); assert(!('answer' in publicQuestion(q)));assert(!('explanation' in publicQuestion(q)));assert(!isCorrect(q,'999/0'));assert(!isCorrect(q,'NaN'));assert(!q.prompt.includes('없음'));assert(q.hints.length===2);
  if(s<=3){let {groups,size,selected}=q.diagram;assert(groups>=3&&groups<=7);assert(size>=2&&size<=5);assert(isCorrect(q,`${selected*size}/${groups*size}`));assert(!isCorrect(q,`${selected+1}/${groups}`));}
+ if(s>=7&&s<=9){
+  assert(q.expression&&publicQuestion(q).expression===q.expression);
+  assert(!q.prompt.includes('분의'),'Classification and conversion prompts display the fraction directly');
+  if(l===2){const [whole,part]=q.answer.split(' '),[n,d]=part.split('/').map(Number);assert.equal(q.expression,`${Number(whole)*d+n}/${d}`);}
+  if(l===3){const [whole,part]=q.expression.split(' '),[n,d]=part.split('/').map(Number);assert.equal(q.answer,`${Number(whole)*d+n}/${d}`);}
+ }
  count++;
 }
 const stages=[];

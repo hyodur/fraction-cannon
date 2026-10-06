@@ -1,5 +1,5 @@
 export type Level = 1 | 2 | 3;
-export type Question = {id:string;topic:string;level:Level;prompt:string;kind:"fraction"|"number"|"choice"|"mixed";answer:string;explanation:string;hints:string[];choices?:string[];diagram?:{groups:number;size:number;selected:number};visual?:boolean};
+export type Question = {id:string;topic:string;level:Level;prompt:string;expression?:string;kind:"fraction"|"number"|"choice"|"mixed";answer:string;explanation:string;hints:string[];choices?:string[];diagram?:{groups:number;size:number;selected:number};visual?:boolean};
 export const TOPICS=["전체와 부분","분수만큼의 양","여러 가지 분수","분수의 크기 비교"];
 export function makeQuestion(stage:number,level:Level,seed:number):Question {
  let n=seed>>>0; const rand=(a:number,b:number)=>{n=(Math.imul(n,1664525)+1013904223)>>>0;return a+n%(b-a+1)};
@@ -18,8 +18,8 @@ export function makeQuestion(stage:number,level:Level,seed:number):Question {
    q.explanation=`한 묶음은 ${size}장, ${k}묶음은 ${k*size}장이에요.${level===3?` 남은 색종이는 ${total}장에서 ${k*size}장을 뺀 ${total-k*size}장이에요.`:""}`;
    q.hints=[`${total}장을 ${d}묶음으로 똑같이 나누면 한 묶음은 몇 장일까요?`,`한 묶음은 ${size}장이에요. ${k}묶음의 장수를 구해 보세요.`];
  } else if(chapter===2) {
-   if(level===1){const a=rand(1,d*2);q.kind="choice";q.prompt=`${d}분의 ${a}은 어떤 분수인가요?`;q.choices=["진분수","가분수"];q.answer=a<d?"진분수":"가분수";q.explanation=a<d?"분자가 분모보다 작으므로 진분수예요.":"분자가 분모와 같거나 크므로 가분수예요.";q.hints=["분자와 분모를 비교해 보세요.","분자가 분모와 같아도 가분수예요."];}
-   else {const whole=rand(1,3),a=whole*d+k;q.kind=level===2?"mixed":"fraction";q.prompt=level===2?`${d}분의 ${a}을 대분수로 나타내세요.`:`${whole}과 ${d}분의 ${k}을 가분수로 나타내세요.`;q.answer=level===2?`${whole} ${k}/${d}`:`${a}/${d}`;q.explanation=`${d}분의 1이 ${d}개 모이면 1이에요. ${d}분의 ${a}과 ${whole}과 ${d}분의 ${k}은 같은 양이에요.`;q.hints=[`${d}분의 1이 몇 개 모이면 1이 될까요?`,level===2?`${a}개를 ${d}개씩 묶어 보세요. 완성된 묶음은 ${whole}개예요.`:`1에는 ${d}분의 1이 ${d}개 있어요. ${whole}에는 몇 개 있을까요?`];}
+   if(level===1){const a=rand(1,d*2);q.kind="choice";q.expression=`${a}/${d}`;q.prompt="어떤 분수인가요?";q.choices=["진분수","가분수"];q.answer=a<d?"진분수":"가분수";q.explanation=a<d?"분자가 분모보다 작으므로 진분수예요.":"분자가 분모와 같거나 크므로 가분수예요.";q.hints=["분자와 분모를 비교해 보세요.","분자가 분모와 같아도 가분수예요."];}
+   else {const whole=rand(1,3),a=whole*d+k;q.kind=level===2?"mixed":"fraction";q.expression=level===2?`${a}/${d}`:`${whole} ${k}/${d}`;q.prompt=level===2?"대분수로 나타내세요.":"가분수로 나타내세요.";q.answer=level===2?`${whole} ${k}/${d}`:`${a}/${d}`;q.explanation=`1/${d}이 ${d}개 모이면 1이에요.\n${a}/${d} = ${whole} ${k}/${d}\n두 분수는 같은 양이에요.`;q.hints=[`1/${d}이 몇 개 모이면 1이 될까요?`,level===2?`${a}개를 ${d}개씩 묶어 보세요. 완성된 묶음은 ${whole}개예요.`:`1에는 1/${d}이 ${d}개 있어요. ${whole}에는 몇 개 있을까요?`];}
  } else {
    q.kind="choice";
    if(level===1){const a=rand(1,d-1),b=a+1;q.choices=rand(0,1)?[`${a}/${d}`,`${b}/${d}`]:[`${b}/${d}`,`${a}/${d}`];q.prompt="두 분수 중 더 큰 분수를 고르세요.";q.answer=`${b}/${d}`;q.explanation="분모가 같으므로 분자가 큰 분수가 더 커요.";q.hints=["분모가 같은지 살펴보세요.","같은 크기의 조각이 더 많이 모인 쪽을 골라 보세요."];}
