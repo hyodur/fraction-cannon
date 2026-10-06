@@ -1,6 +1,26 @@
 import assert from 'node:assert/strict';
 import {makeQuestion,isCorrect,publicQuestion} from '../lib/questions.ts';
 import {initialBlocks,simulateShot,difficulty,score} from '../lib/physics.ts';
+import {playbackPosition} from '../lib/playback.ts';
+assert.deepEqual(playbackPosition(99,100,80),{index:0,done:false});
+assert.deepEqual(playbackPosition(0,100,0),{index:-1,done:true});
+assert.deepEqual(playbackPosition(4100,100,80),{index:79,done:true});
+assert.deepEqual(playbackPosition(100000,100,80),{index:79,done:true});
+assert.deepEqual(playbackPosition(100,100,1),{index:0,done:false});
+// A front-on shot must hit the chosen face, even with another block to its left.
+const wall=[{id:1,x:650,y:435,w:40,h:50,a:0,hp:4,maxHp:4,material:3},{id:2,x:750,y:435,w:40,h:50,a:0,hp:4,maxHp:4,material:3}];
+const direct=simulateShot(wall,2);
+assert.equal(direct.frames.length,80);
+assert(direct.frames.slice(0,11).every(f=>f.blocks.every(b=>b.hp===4)));
+assert.equal(direct.frames[11].blocks.find(b=>b.id===2).hp,3);
+assert.equal(direct.frames[11].blocks.find(b=>b.id===1).hp,4);
+assert.equal(direct.frames[0].ball.depth,1);
+assert(direct.frames[10].ball.depth<direct.frames[0].ball.depth);
+assert.equal(direct.frames[11].ball,undefined);
+let supported=initialBlocks(1);
+supported=simulateShot(supported,1).blocks;
+if(supported.some(b=>b.id===2))supported=simulateShot(supported,2).blocks;
+assert(supported.length<5,'Removing supports must collapse the upper stack');
 let count=0;
 for(let s=1;s<=12;s++) for(let l=1;l<=3;l++) for(let seed=1;seed<=80;seed++){
  const q=makeQuestion(s,l,seed); assert(isCorrect(q,q.answer),JSON.stringify(q)); assert(!('answer' in publicQuestion(q)));assert(!('explanation' in publicQuestion(q)));assert(!isCorrect(q,'999/0'));assert(!isCorrect(q,'NaN'));assert(!q.prompt.includes('없음'));assert(q.hints.length===2);

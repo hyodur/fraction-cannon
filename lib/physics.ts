@@ -1,7 +1,7 @@
 import Matter from "matter-js";
-const {Bodies,Body,Composite,Engine,Events}=Matter;
+const {Bodies,Body,Composite,Engine}=Matter;
 export type Block={id:number;x:number;y:number;w:number;h:number;a:number;hp:number;maxHp:number;material:number;vx?:number;vy?:number;va?:number};
-export type Frame={blocks:Block[];ball?:{x:number;y:number};broken:{x:number;y:number}[]};
+export type Frame={blocks:Block[];ball?:{x:number;y:number;depth:number};broken:{x:number;y:number}[]};
 export const MATERIALS=["나무","강화 나무","돌","철"];
 export const STAGE_NAMES=["첫 번째 작전","두 개의 탑","흔들리는 다리","단단한 첫 만남","엇갈린 받침","강화 성의 비밀","묵직한 도전","돌과 나무","연결부를 찾아라","철벽의 등장","기울어진 작전","마지막 대포"];
 export function initialBlocks(stage:number):Block[]{
@@ -24,14 +24,35 @@ export function difficulty(block:Block):1|2|3{return block.y>=385?3:block.y>=315
 export function simulateShot(blocks:Block[],targetId:number){
  const target=blocks.find(b=>b.id===targetId);if(!target)throw Error("대상이 사라졌어요.");
  const {engine,bodies}=world(blocks),map=new Map(blocks.map(b=>[b.id,{...b}]));
- const start={x:165,y:415},steps=32; const ball=Bodies.circle(start.x,start.y,15,{density:.015,restitution:.15,frictionAir:0,label:"ball"});
- Body.setVelocity(ball,{x:(target.x-start.x)/steps,y:(target.y-start.y)/steps-.27777778*(steps+1)/2});
- Composite.add(engine.world,ball);const frames:Frame[]=[],hit=new Set<number>();let broken:{x:number;y:number}[]=[];
- Events.on(engine,"collisionStart",(event)=>{for(const pair of event.pairs){if(pair.bodyA!==ball&&pair.bodyB!==ball)continue;const body=pair.bodyA===ball?pair.bodyB:pair.bodyA;const id=+body.label,b=map.get(id);if(!b||hit.has(id))continue;hit.add(id);b.hp--;if(b.hp<=0){broken.push({...body.position});map.delete(id);Composite.remove(engine.world,body)}else{Body.setVelocity(body,{x:body.velocity.x+2.8,y:body.velocity.y-1});}}});
+ const frames:Frame[]=[];let broken:{x:number;y:number}[]=[];
+ const impactStep=32,targetBody=bodies.find(b=>+b.label===targetId)!;
+ // The shot travels along depth from the viewer, so neighboring front faces do
+ // not intercept it sideways. Matter handles the resulting collapse in x/y.
  for(let t=0;t<240;t++){
+   if(t===impactStep){
+     const hit=map.get(targetId);
+     if(hit){
+       // Removing a support must wake the stack so unsupported blocks fall.
+       for(const body of bodies)if(map.has(+body.label))Matter.Sleeping.set(body,false);
+       hit.hp--;broken.push({...targetBody.position});
+       if(hit.hp<=0){map.delete(targetId);Composite.remove(engine.world,targetBody)}
+       else{
+         const direction=targetBody.position.x<700?-1:1;
+         Body.setVelocity(targetBody,{x:direction*2.4,y:-1.4});
+         Body.setAngularVelocity(targetBody,direction*.025);
+         Matter.Sleeping.set(targetBody,false);
+       }
+     }
+   }
    Engine.update(engine,1000/60);
-   for(const body of bodies){if(map.has(+body.label)&&(body.position.y>510||body.position.x>1100||body.position.x<350)){broken.push({...body.position});map.delete(+body.label);Composite.remove(engine.world,body)}}
-   if(t%3===0){frames.push({blocks:snapshots(bodies,map),ball:ball.position.y<650?{x:+ball.position.x.toFixed(2),y:+ball.position.y.toFixed(2)}:undefined,broken});broken=[];}
+   for(const body of bodies){
+     const original=map.get(+body.label);
+     if(original&&(body.position.y>510||body.position.x>1100||body.position.x<350||body.position.y-original.y>Math.max(42,original.h*.65)||Math.abs(body.angle)>1.15)){
+       broken.push({...body.position});map.delete(+body.label);Composite.remove(engine.world,body);
+       for(const other of bodies)if(map.has(+other.label))Matter.Sleeping.set(other,false);
+     }
+   }
+   if(t%3===0){frames.push({blocks:snapshots(bodies,map),ball:t<impactStep?{x:targetBody.position.x,y:targetBody.position.y,depth:1-t/impactStep}:undefined,broken});broken=[];}
  }
  const result=snapshots(bodies,map);Engine.clear(engine);
  return {blocks:result,frames,cleared:blocks.length-result.length};
