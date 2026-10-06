@@ -1,5 +1,5 @@
 import {env} from "cloudflare:workers";
-import {initialBlocks,difficulty,simulateShot,score,type Block} from "./physics";
+import {initialBlocks,rebalanceBlocks,difficulty,simulateShot,score,type Block} from "./physics";
 import {makeQuestion,isCorrect,publicQuestion,type Question} from "./questions";
 export const SEASON="2026-pilot-1";
 type Challenge={q:Question;target:number;opened:number;errors:number;hints:number;ready:boolean;explanation?:string};
@@ -17,7 +17,7 @@ export async function player(req:Request):Promise<{user:Player;cookie?:string}>{
  if(!user){const adjectives=["용감한","반짝이는","씩씩한","날쌘","호기심많은"];const animals=["토끼","수달","곰","여우","펭귄"];const bytes=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(id)));const nickname=adjectives[bytes[0]%5]+" "+animals[bytes[1]%5]+" "+(bytes[2]*256+bytes[3]).toString().padStart(5,"0");await db().prepare("INSERT OR IGNORE INTO players (id,nickname,unlocked,created_at) VALUES (?,?,1,?)").bind(id,nickname,Date.now()).run();user={id,nickname,unlocked:1};}
  return {user,cookie};
 }
-export function view(row:RunRow,s:State){return {id:row.id,stage:row.stage,blocks:s.blocks,total:s.total,shots:s.shots,errors:s.errors,milliseconds:s.milliseconds,done:s.done,score:s.done?score(s.shots,s.errors,s.speedTotal):null,challenge:s.challenge?{...publicQuestion(s.challenge.q,s.challenge.hints),target:s.challenge.target,ready:s.challenge.ready,explanation:s.challenge.ready?s.challenge.explanation:undefined}:null}}
+export function view(row:RunRow,s:State){s.blocks=rebalanceBlocks(row.stage,s.blocks);return {id:row.id,stage:row.stage,blocks:s.blocks,total:s.total,shots:s.shots,errors:s.errors,milliseconds:s.milliseconds,done:s.done,score:s.done?score(s.shots,s.errors,s.speedTotal):null,challenge:s.challenge?{...publicQuestion(s.challenge.q,s.challenge.hints),target:s.challenge.target,ready:s.challenge.ready,explanation:s.challenge.ready?s.challenge.explanation:undefined}:null}}
 export async function start(user:Player,stage:number){
  if(!Number.isInteger(stage)||stage<1||stage>12||stage>user.unlocked)throw new GameError("앞의 성을 먼저 완료해 주세요.");
  const previous=await db().prepare("SELECT updated_at FROM runs WHERE player_id=? ORDER BY updated_at DESC LIMIT 1").bind(user.id).first<{updated_at:number}>();
@@ -32,7 +32,7 @@ export async function act(user:Player,body:Record<string,unknown>){
  if(typeof body.run!=="string")throw new GameError("탐험을 먼저 시작해 주세요.");
  const row=await db().prepare("SELECT * FROM runs WHERE id=? AND player_id=?").bind(body.run,user.id).first<RunRow>();
  if(!row||Date.now()-row.updated_at>86400000)throw new GameError("탐험이 만료되었어요. 다시 시작해 주세요.",404);
- const s:State=JSON.parse(row.state),now=Date.now();let extra:Record<string,unknown>={};
+ const s:State=JSON.parse(row.state),now=Date.now();s.blocks=rebalanceBlocks(row.stage,s.blocks);let extra:Record<string,unknown>={};
  if(body.action==="register"){
    if(!s.done)throw new GameError("성을 모두 무너뜨린 뒤 등록할 수 있어요.");
    const points=score(s.shots,s.errors,s.speedTotal);

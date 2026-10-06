@@ -1,4 +1,4 @@
-import { difficulty, MATERIALS, SHELF, type Block, type Frame } from "@/lib/physics";
+import { difficulty, blockName, SHELF, type Block, type Frame } from "@/lib/physics";
 
 const levels=["","쉬움","보통","도전"];
 const colors=[
@@ -63,7 +63,7 @@ export function GameArena({blocks,target,ball,bursts,locked,animating,topic,onSe
   {[...blocks].sort((a,b)=>Math.round(b.y/2)-Math.round(a.y/2)||b.x-a.x).map(b=>{
    const p=project(b.x,b.y),w=(b.w-1.3)*1.4,h=(b.h-1.3)*1.02,c=colors[b.material],lv=difficulty(b),isTarget=b.id===target;
    const cos=Math.cos(b.a),sin=Math.sin(b.a);
-   return <g key={b.id} role="button" aria-label={`${b.id}번 ${MATERIALS[b.material]} 블록, ${levels[lv]}, 남은 단단함 ${b.hp}`} aria-pressed={isTarget} aria-disabled={locked} tabIndex={locked?-1:0}
+   return <g key={b.id} role="button" aria-label={`${b.id}번 ${blockName(b)} 블록, ${levels[lv]}, 남은 단단함 ${b.hp}`} aria-pressed={isTarget} aria-disabled={locked} tabIndex={locked?-1:0}
     onClick={()=>{if(!locked)onSelect(b)}} onKeyDown={e=>{if((e.key==="Enter"||e.key===" ")&&!locked){e.preventDefault();onSelect(b)}}}
     style={{cursor:locked?"default":"crosshair"}} transform={`translate(${p.x} ${p.y}) matrix(${cos} ${sin*1.02/1.4} ${-sin*1.4/1.02} ${cos} 0 0)`}>
     <rect className="block-face" x={-w/2} y={-h/2} width={w} height={h} rx="1" fill={c.front} stroke={isTarget?"#2857ed":c.edge} strokeWidth={isTarget?3:1.25}/>

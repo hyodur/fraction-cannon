@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {makeQuestion,isCorrect,publicQuestion} from '../lib/questions.ts';
-import {initialBlocks,simulateShot,difficulty,score,SHELF,FALL_CLEAR_Y,blockProperties} from '../lib/physics.ts';
+import {initialBlocks,simulateShot,difficulty,score,SHELF,FALL_CLEAR_Y,blockProperties,rebalanceBlocks} from '../lib/physics.ts';
 import {playbackPosition} from '../lib/playback.ts';
 assert.deepEqual(playbackPosition(99,100,80),{index:0,done:false});
 assert.deepEqual(playbackPosition(0,100,0),{index:-1,done:true});
@@ -63,11 +63,18 @@ for(let s=1;s<=12;s++) for(let l=1;l<=3;l++) for(let seed=1;seed<=80;seed++){
  count++;
 }
 const stages=[];
+const oldBlocks=initialBlocks(7).map(b=>({...b,maxHp:b.material+1,hp:Math.max(0,b.material),reinforced:undefined}));
+const adjusted=rebalanceBlocks(7,oldBlocks);
+assert(adjusted.every((b,i)=>b.id===oldBlocks[i].id&&b.x===oldBlocks[i].x&&b.y===oldBlocks[i].y&&b.hp<=oldBlocks[i].hp));
+assert(adjusted.every(b=>b.maxHp<=2));
+assert.deepEqual(rebalanceBlocks(7,adjusted),adjusted,'Reloading must not repeatedly change damage');
 for(let s=1;s<=12;s++){
  let b=initialBlocks(s);assert(b.length>5);assert(b.every(x=>x.y<490));const total=b.length;let shots=0;
  while(b.length&&shots<55){const target=[...b].sort((a,b)=>b.y-a.y||a.x-b.x)[0];assert(difficulty(target)>=1);const result=simulateShot(b,target.id);verifyFalls(result);b=result.blocks;shots++}
  assert.equal(b.length,0,`stage ${s} failed to clear`);stages.push({stage:s,blocks:total,shots});
 }
+assert(stages[6].shots<=10,'Stage 7 should take substantially fewer shots than the previous 19-shot baseline');
+assert(stages[11].shots>stages[6].shots,'The final stage retains the stronger challenge');
 assert(score(2,0,1)>score(3,0,1));assert(score(2,0,1)>score(2,1,1));assert(score(2,0,2)>score(2,0,1));
 console.log(JSON.stringify({questions:count,stages,passed:true}));
 
