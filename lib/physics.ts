@@ -3,6 +3,8 @@ const {Bodies,Body,Composite,Engine}=Matter;
 export type Block={id:number;x:number;y:number;w:number;h:number;a:number;hp:number;maxHp:number;material:number;vx?:number;vy?:number;va?:number};
 export type Frame={blocks:Block[];ball?:{x:number;y:number;depth:number};broken:{x:number;y:number}[]};
 export const MATERIALS=["나무","강화 나무","돌","철"];
+export const SHELF={x:700,y:460,width:300,thickness:26};
+export const FALL_CLEAR_Y=780;
 export const STAGE_NAMES=["첫 번째 작전","두 개의 탑","흔들리는 다리","단단한 첫 만남","엇갈린 받침","강화 성의 비밀","묵직한 도전","돌과 나무","연결부를 찾아라","철벽의 등장","기울어진 작전","마지막 대포"];
 export function initialBlocks(stage:number):Block[]{
  const material=Math.floor((stage-1)/3),variant=(stage-1)%3,arr:Block[]=[];
@@ -14,8 +16,8 @@ export function initialBlocks(stage:number):Block[]{
 }
 function world(blocks:Block[]){
  const engine=Engine.create({enableSleeping:true,positionIterations:8,velocityIterations:8});
- const base=Bodies.rectangle(700,475,460,30,{isStatic:true,friction:.55});
- const bodies=blocks.map(b=>{const body=Bodies.rectangle(b.x,b.y,b.w,b.h,{angle:b.a,friction:.6,frictionStatic:.8,restitution:.08,density:.0015+b.material*.0005,frictionAir:.025,label:String(b.id)});Body.setVelocity(body,{x:b.vx||0,y:b.vy||0});Body.setAngularVelocity(body,b.va||0);return body;});
+ const base=Bodies.rectangle(SHELF.x,SHELF.y+SHELF.thickness/2,SHELF.width,SHELF.thickness,{isStatic:true,friction:.35});
+ const bodies=blocks.map(b=>{const body=Bodies.rectangle(b.x,b.y,b.w,b.h,{angle:b.a,friction:.35,frictionStatic:.6,restitution:.08,density:.0015+b.material*.0005,frictionAir:b.hp===0?.06:.012,label:String(b.id)});Body.setVelocity(body,{x:b.vx||0,y:b.vy||0});Body.setAngularVelocity(body,b.va||0);return body;});
  Composite.add(engine.world,[base,...bodies]);return {engine,bodies};
 }
 function snapshots(bodies:Matter.Body[],map:Map<number,Block>):Block[]{return bodies.filter(b=>map.has(+b.label)).map(b=>({...map.get(+b.label)!,x:+b.position.x.toFixed(3),y:+b.position.y.toFixed(3),a:+b.angle.toFixed(5),vx:+b.velocity.x.toFixed(4),vy:+b.velocity.y.toFixed(4),va:+b.angularVelocity.toFixed(5)}));}
@@ -32,24 +34,21 @@ export function simulateShot(blocks:Block[],targetId:number){
    if(t===impactStep){
      const hit=map.get(targetId);
      if(hit){
-       // Removing a support must wake the stack so unsupported blocks fall.
+       // The target stays in the simulation: a hit pushes it, never deletes it.
        for(const body of bodies)if(map.has(+body.label))Matter.Sleeping.set(body,false);
-       hit.hp--;broken.push({...targetBody.position});
-       if(hit.hp<=0){map.delete(targetId);Composite.remove(engine.world,targetBody)}
-       else{
-         const direction=targetBody.position.x<700?-1:1;
-         Body.setVelocity(targetBody,{x:direction*2.4,y:-1.4});
-         Body.setAngularVelocity(targetBody,direction*.025);
-         Matter.Sleeping.set(targetBody,false);
-       }
+       hit.hp=Math.max(0,hit.hp-1);if(hit.hp===0)targetBody.frictionAir=.06;broken.push({...targetBody.position});
+       const direction=targetBody.position.x<SHELF.x?-1:1;
+       const force=hit.hp===0?20:1.8;
+       Body.setVelocity(targetBody,{x:targetBody.velocity.x+direction*force,y:targetBody.velocity.y-(hit.hp===0?2.5:.6)});
+       Body.setAngularVelocity(targetBody,direction*(hit.hp===0?.065:.012));
      }
    }
    Engine.update(engine,1000/60);
    for(const body of bodies){
-     const original=map.get(+body.label);
-     if(original&&(body.position.y>510||body.position.x>1100||body.position.x<350||body.position.y-original.y>Math.max(42,original.h*.65)||Math.abs(body.angle)>1.15)){
-       broken.push({...body.position});map.delete(+body.label);Composite.remove(engine.world,body);
-       for(const other of bodies)if(map.has(+other.label))Matter.Sleeping.set(other,false);
+     if(map.has(+body.label)&&body.bounds.min.y>FALL_CLEAR_Y){
+       // Count only after the entire block has fallen well below the shelf.
+       // No removal on damage, tilt, displacement, or horizontal screen exit.
+       map.delete(+body.label);Composite.remove(engine.world,body);
      }
    }
    if(t%3===0){frames.push({blocks:snapshots(bodies,map),ball:t<impactStep?{x:targetBody.position.x,y:targetBody.position.y,depth:1-t/impactStep}:undefined,broken});broken=[];}

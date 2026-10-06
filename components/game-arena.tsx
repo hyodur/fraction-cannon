@@ -1,4 +1,4 @@
-import { difficulty, MATERIALS, type Block, type Frame } from "@/lib/physics";
+import { difficulty, MATERIALS, SHELF, type Block, type Frame } from "@/lib/physics";
 
 const levels=["","쉬움","보통","도전"];
 const colors=[
@@ -7,7 +7,9 @@ const colors=[
  {front:"#a6bacd",top:"#dce8f1",side:"#718ba4",edge:"#566e87"},
  {front:"#7d96ba",top:"#c4d7f0",side:"#475f86",edge:"#364d74"},
 ];
-const project=(x:number,y:number)=>({x:500+(x-700)*1.4,y:400+(y-460)*1.18});
+const project=(x:number,y:number)=>({x:500+(x-700)*1.4,y:340+(y-SHELF.y)*1.02});
+const shelfLeft=project(SHELF.x-SHELF.width/2,SHELF.y).x;
+const shelfRight=project(SHELF.x+SHELF.width/2,SHELF.y).x;
 
 type Props={blocks:Block[];target:number|null;ball:Frame["ball"];bursts:Frame["broken"];locked:boolean;animating:boolean;topic:string;onSelect:(block:Block)=>void};
 export function GameArena({blocks,target,ball,bursts,locked,animating,topic,onSelect}:Props){
@@ -25,27 +27,33 @@ export function GameArena({blocks,target,ball,bursts,locked,animating,topic,onSe
    <radialGradient id="cannonball" cx=".3" cy=".25"><stop stopColor="#8299ba"/><stop offset=".5" stopColor="#304968"/><stop offset="1" stopColor="#12243e"/></radialGradient>
   </defs>
   <rect width="1000" height="650" fill="url(#arena-sky)"/>
-  <path d="M0 310 Q500 260 1000 310 V650 H0Z" fill="url(#arena-ground)"/>
+  <path d="M0 440 Q500 390 1000 440 V650 H0Z" fill="url(#arena-ground)"/>
   <g fill="none" stroke="#effcff" strokeWidth="2" opacity=".35" aria-hidden="true">
-   {[0,200,400,600,800,1000].map(x=><path key={x} d={`M500 285 L${(x-500)*2+500} 650`}/>)}
-   {[342,390,465,570].map(y=><path key={y} d={`M0 ${y} Q500 ${y-25} 1000 ${y}`}/>)}
+   {[0,200,400,600,800,1000].map(x=><path key={x} d={`M500 410 L${(x-500)*2+500} 650`}/>)}
+   {[440,490,570].map(y=><path key={y} d={`M0 ${y} Q500 ${y-25} 1000 ${y}`}/>)}
   </g>
   <text x="32" y="43" fontSize="17" fill="#305a77" fontWeight="700">{topic}</text>
   <text x="968" y="43" textAnchor="end" fontSize="16" fill="#305a77">{animating?"명중! 무너지는 중…":"정면의 블록을 눌러 조준!"}</text>
-  <ellipse cx="505" cy="448" rx="348" ry="31" fill="#517b91" opacity=".19"/>
-  <path d="M178 400 L198 376 H842 L822 400Z" fill="#bdcddd"/>
-  <path d="M178 400 H822 V430 H178Z" fill="#5b7393"/>
-  <path d="M822 400 L842 376 V405 L822 430Z" fill="#415775"/>
-  <path d="M184 405 H816" stroke="#88a1bf" strokeWidth="5"/>
+  <ellipse cx="505" cy="566" rx="255" ry="25" fill="#517b91" opacity=".19"/>
+  <g aria-hidden="true">
+   <path d={`M${shelfLeft+28} 358 V556 M${shelfRight-28} 358 V556`} stroke="#7892ad" strokeWidth="19"/>
+   <path d={`M${shelfLeft+30} 545 L${shelfRight-30} 375 M${shelfRight-30} 545 L${shelfLeft+30} 375`} stroke="#90a9bd" strokeWidth="9"/>
+   <path d={`M${shelfLeft} 340 l14 -16 H${shelfRight+14} l-14 16Z`} fill="#bdcddd"/>
+   <path d={`M${shelfLeft} 340 H${shelfRight} V367 H${shelfLeft}Z`} fill="#5b7393"/>
+   <path d={`M${shelfRight} 340 l14 -16 v27 l-14 16Z`} fill="#415775"/>
+   <path d={`M${shelfLeft+6} 345 H${shelfRight-6}`} stroke="#88a1bf" strokeWidth="5"/>
+  </g>
+  <text x="965" y="587" textAnchor="end" fontSize="16" fill="#2d536c">선반 아래로 떨어뜨려요!</text>
   <g className="block-stack">
   {/* Paint supports before the blocks resting on them. Otherwise a support's
       top face covers the upper block and makes the stack look recessed.
       Ignore subpixel settling differences when ordering neighbors in a row. */}
   {[...blocks].sort((a,b)=>Math.round(b.y/2)-Math.round(a.y/2)||b.x-a.x).map(b=>{
-   const p=project(b.x,b.y),w=b.w*1.4,h=b.h*1.18,c=colors[b.material],lv=difficulty(b),isTarget=b.id===target;
+   const p=project(b.x,b.y),w=b.w*1.4,h=b.h*1.02,c=colors[b.material],lv=difficulty(b),isTarget=b.id===target;
+   const cos=Math.cos(b.a),sin=Math.sin(b.a);
    return <g key={b.id} role="button" aria-label={`${b.id}번 ${MATERIALS[b.material]} 블록, ${levels[lv]}, 남은 단단함 ${b.hp}`} aria-pressed={isTarget} aria-disabled={locked} tabIndex={locked?-1:0}
     onClick={()=>{if(!locked)onSelect(b)}} onKeyDown={e=>{if((e.key==="Enter"||e.key===" ")&&!locked){e.preventDefault();onSelect(b)}}}
-    style={{cursor:locked?"default":"crosshair"}} transform={`translate(${p.x} ${p.y}) rotate(${b.a*180/Math.PI})`}>
+    style={{cursor:locked?"default":"crosshair"}} transform={`translate(${p.x} ${p.y}) matrix(${cos} ${sin*1.02/1.4} ${-sin*1.4/1.02} ${cos} 0 0)`}>
     <path d={`M${-w/2} ${-h/2} l8 -9 h${w} l-8 9Z`} fill={c.top} stroke={c.edge} strokeWidth="1.5"/>
     <path d={`M${w/2} ${-h/2} l8 -9 v${h} l-8 9Z`} fill={c.side} stroke={c.edge} strokeWidth="1.5"/>
     <rect className="block-face" x={-w/2} y={-h/2} width={w} height={h} rx="3" fill={c.front} stroke={isTarget?"#2857ed":c.edge} strokeWidth={isTarget?5:2}/>
