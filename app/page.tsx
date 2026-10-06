@@ -3,9 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import { Trophy, Target, BookOpen, RotateCcw, Map, Lock, Check, Lightbulb, Volume2, VolumeX, ChevronRight, HelpCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { initialBlocks, blockName, difficulty, MATERIALS, STAGE_NAMES, type Block, type Frame } from "@/lib/physics";
+import { initialBlocks, blockName, difficulty, SHELF, MATERIALS, STAGE_NAMES, type Block, type Frame } from "@/lib/physics";
 import { GameArena } from "@/components/game-arena";
-import { closeGameAudio, playGameTone } from "@/lib/audio";
+import { closeGameAudio, playGameTone, playGameEffect } from "@/lib/audio";
+import { shotSoundCues } from "@/lib/sound-events";
 import { playbackPosition } from "@/lib/playback";
 import { Fraction, FractionText, QuestionPrompt } from "@/components/fraction";
 import { TOPICS, type Question } from "@/lib/questions";
@@ -20,6 +21,7 @@ export default function Home(){
  const [player,setPlayer]=useState({nickname:"탐험대원",unlocked:1}),[busy,setBusy]=useState(false),[animating,setAnimating]=useState(false),[target,setTarget]=useState<number|null>(null),[error,setError]=useState(""),[message,setMessage]=useState("공격할 블록을 눌러 보세요."),[loaded,setLoaded]=useState(false);
  const [modal,setModal]=useState<"map"|"rank"|"help"|null>(null),[rows,setRows]=useState<RecordRow[]>([]),[mine,setMine]=useState<RecordRow|null>(null),[rankStage,setRankStage]=useState(1),[rankLoading,setRankLoading]=useState(false),[rankError,setRankError]=useState("");
  const [n,setN]=useState(""),[d,setD]=useState(""),[whole,setWhole]=useState(""),[choice,setChoice]=useState(""),[registered,setRegistered]=useState(false),[muted,setMuted]=useState(false);
+ const mutedRef=useRef(false);
  const shotLock=useRef(false),playbackId=useRef(0);
  const frameRef=useRef<number>(0), audioRef=useRef<AudioContext|null>(null),rankRequest=useRef(0),mounted=useRef(true);
  const stage=run?.stage||1,chapter=Math.floor((stage-1)/3),q=run?.challenge,selected=display.find(b=>b.id===target),locked=busy||animating||!!q||!!run?.done;
@@ -28,7 +30,8 @@ export default function Home(){
  useEffect(()=>{mounted.current=true;setLocalPreview(["127.0.0.1","localhost","[::1]"].includes(window.location.hostname));void load();return ()=>{mounted.current=false;playbackId.current++;cancelAnimationFrame(frameRef.current);closeGameAudio(audioRef);}},[]);
  useEffect(()=>{const context=(document as Document&{modelContext?:{registerTool:(t:unknown,o:unknown)=>Promise<void>|void}}).modelContext;if(!context?.registerTool)return;const abort=new AbortController();Promise.resolve(context.registerTool({name:"read_fraction_game_progress",description:"현재 분수 대포 게임의 스테이지와 진행 상황을 확인합니다.",inputSchema:{type:"object",properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:(input:unknown)=>{if(!input||typeof input!=="object"||Object.keys(input).length)throw Error("빈 입력만 허용합니다.");return {stage:run?.stage||1,shots:run?.shots||0,remaining:run?.blocks.length||0,done:run?.done||false,topic:TOPICS[chapter]}}},{signal:abort.signal})).catch(()=>{});return ()=>abort.abort()},[run,chapter]);
  useEffect(()=>{if(target!==null&&window.matchMedia("(max-width:760px)").matches)document.querySelector(".mission-card")?.scrollIntoView({behavior:"smooth",block:"start"})},[target]);
- function tone(freq:number,duration=.12){if(!muted)playGameTone(audioRef,freq,duration)}
+ function tone(freq:number,duration=.12){if(!mutedRef.current)playGameTone(audioRef,freq,duration)}
+ function toggleSound(){const next=!mutedRef.current;mutedRef.current=next;setMuted(next);if(next)closeGameAudio(audioRef)}
  async function startStage(s:number){setBusy(true);setError("");try{const data=await api({action:"start",stage:s});apply(data.run);setTarget(null);setRegistered(false);setModal(null);setMessage("공격할 블록을 눌러 보세요.");setN("");setD("");setWhole("");setChoice("")}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  async function openQuestion(){if(target===null)return;setBusy(true);setError("");try{let r=run;if(!r){const data=await api({action:"start",stage:1});r=data.run;apply(r!)}const data=await api({action:"challenge",run:r!.id,target});apply(data.run);setN("");setD("");setWhole("");setChoice("");setMessage("시간 제한은 없어요. 차근차근 풀어 보세요.")}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  async function answer(e?:React.FormEvent){e?.preventDefault();if(!q||busy)return;const value=q.kind==="choice"?choice:q.kind==="fraction"?`${n}/${d}`:q.kind==="mixed"?`${whole} ${n}/${d}`:n;if((q.kind==="choice"&&!choice)||(q.kind!=="choice"&&!n)||((q.kind==="fraction"||q.kind==="mixed")&&!d)||(q.kind==="mixed"&&!whole)){setMessage("답을 모두 입력해 주세요.");return}setBusy(true);setError("");try{const data=await api({action:"answer",run:run!.id,answer:value});apply(data.run);setMessage(data.correct?"정답이에요! 이제 발사해요.":data.feedback);tone(data.correct?720:200)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
@@ -41,6 +44,7 @@ export default function Home(){
    const data=await api({action:"fire",run:run.id});
    if(!mounted.current||playback!==playbackId.current)return;
    const frames=Array.isArray(data.frames)?data.frames:[];
+   const soundCues=shotSoundCues(frames,SHELF.y);
    const finish=()=>{
     apply(data.run);setBall(undefined);setBursts([]);setTarget(null);setAnimating(false);shotLock.current=false;
     setMessage(data.run.done?"모든 블록을 무너뜨렸어요! 멋진 작전이에요.":data.cleared?`${data.cleared}개를 무너뜨렸어요! 다음 작전을 세워 볼까요?`:"아직 선반 위에 남아 있어요. 기울거나 금이 간 블록을 다시 공략해 보세요.");
@@ -56,7 +60,12 @@ export default function Home(){
     if(done){finish();return}
     const frame=frames[index];
     if(!frame||!Array.isArray(frame.blocks)){finish();return}
-    if(index!==lastIndex){setDisplay(frame.blocks);setBall(frame.ball);setBursts(frame.broken||[]);lastIndex=index;}
+    if(index!==lastIndex){
+     if(!mutedRef.current&&!document.hidden){
+      const effects=new Set(soundCues.filter(c=>c.frame>lastIndex&&c.frame<=index&&c.frame>=index-4).map(c=>c.effect));
+      for(const effect of effects)playGameEffect(audioRef,effect);
+     }
+     setDisplay(frame.blocks);setBall(frame.ball);setBursts(frame.broken||[]);lastIndex=index;}
     frameRef.current=requestAnimationFrame(tick);
    };
    frameRef.current=requestAnimationFrame(tick);
@@ -66,7 +75,7 @@ export default function Home(){
  async function showRank(s=stage){setRankStage(s);setModal("rank");setRankLoading(true);setRankError("");setRows([]);setMine(null);const request=++rankRequest.current;try{const data=await api(undefined,`?ranking=${s}`);if(request!==rankRequest.current)return;setRows(data.rows);setMine(data.mine)}catch(e){if(request===rankRequest.current)setRankError((e as Error).message)}finally{if(request===rankRequest.current)setRankLoading(false)}}
  async function register(){if(!run)return;setBusy(true);setError("");try{await api({action:"register",run:run.id});setRegistered(true);await showRank()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  const initial=run?.total||display.length,removed=initial-display.length;
- return <main className="game-shell"><header className="topbar"><a className="brand" href="/">분수 <b>팡!</b><span>대포 탐험대</span></a><span className="grade">초등 3학년 · 2학기</span><button className="button light" onClick={()=>showRank()}><Trophy size={18}/> 전국 TOP 100</button><button className="icon-button" aria-label={muted?"소리 켜기":"소리 끄기"} onClick={()=>setMuted(!muted)}>{muted?<VolumeX size={20}/>:<Volume2 size={20}/>}</button></header>
+ return <main className="game-shell"><header className="topbar"><a className="brand" href="/">분수 <b>팡!</b><span>대포 탐험대</span></a><span className="grade">초등 3학년 · 2학기</span><button className="button light" onClick={()=>showRank()}><Trophy size={18}/> 전국 TOP 100</button><button className="icon-button" aria-label={muted?"소리 켜기":"소리 끄기"} onClick={toggleSound}>{muted?<VolumeX size={20}/>:<Volume2 size={20}/>}</button></header>
  <section className="stage-heading"><div><p className="eyebrow">CHAPTER {String(chapter+1).padStart(2,"0")} · {MATERIALS[chapter]} 성</p><h1>{STAGE_NAMES[stage-1]}</h1><p>문제를 풀고, 가장 멋진 한 발을 날려요.</p></div><div className="stage-counter">STAGE <strong>{String(stage).padStart(2,"0")}</strong><span>/ 12</span></div><button className="button light map-button" disabled={busy||animating||!!q&&!run?.done} onClick={()=>setModal("map")}><Map size={18}/> 스테이지</button></section>
  {error?<div className="error-banner" role="alert">{error}<button onClick={()=>load()}>다시 연결</button></div>:null}
  <div className="play-layout"><section className="arena"><div className="arena-top"><span>모든 블록을 무너뜨려요!</span><div><span className="ammo-dot"/> 대포알 <b>{run?.shots||0}</b>발 <span className="arena-divider">|</span> 남은 블록 <b>{display.length}</b>개</div></div>
