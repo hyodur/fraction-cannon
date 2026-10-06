@@ -10,6 +10,16 @@ const colors=[
 const project=(x:number,y:number)=>({x:500+(x-700)*1.4,y:340+(y-SHELF.y)*1.02});
 const shelfLeft=project(SHELF.x-SHELF.width/2,SHELF.y).x;
 const shelfRight=project(SHELF.x+SHELF.width/2,SHELF.y).x;
+function blockSides(block:Block){
+ const cos=Math.cos(block.a),sin=Math.sin(block.a),w=block.w/2-.65,h=block.h/2-.65;
+ const corners=[[-w,-h],[w,-h],[w,h],[-w,h]].map(([x,y])=>project(block.x+x*cos-y*sin,block.y+x*sin+y*cos));
+ return corners.flatMap((a,i)=>{
+  const b=corners[(i+1)%4],nx=b.y-a.y,ny=a.x-b.x;
+  // Depth is fixed in the scene, even when a block rotates in the front plane.
+  if(nx*6-ny*7<=0)return [];
+  return [{points:`${a.x},${a.y} ${a.x+6},${a.y-7} ${b.x+6},${b.y-7} ${b.x},${b.y}`,top:ny<0&&Math.abs(ny)>Math.abs(nx)}];
+ });
+}
 
 type Props={blocks:Block[];target:number|null;ball:Frame["ball"];bursts:Frame["broken"];locked:boolean;animating:boolean;topic:string;onSelect:(block:Block)=>void};
 export function GameArena({blocks,target,ball,bursts,locked,animating,topic,onSelect}:Props){
@@ -45,18 +55,18 @@ export function GameArena({blocks,target,ball,bursts,locked,animating,topic,onSe
   </g>
   <text x="965" y="587" textAnchor="end" fontSize="16" fill="#2d536c">선반 아래로 떨어뜨려요!</text>
   <g className="block-stack">
-  {/* Paint supports before the blocks resting on them. Otherwise a support's
-      top face covers the upper block and makes the stack look recessed.
-      Ignore subpixel settling differences when ordering neighbors in a row. */}
+  {/* All depth faces sit behind the physical front plane. A neighboring face
+      must never be covered by another block's decorative extrusion. */}
+  <g className="block-depth" pointerEvents="none" aria-hidden="true">
+   {[...blocks].sort((a,b)=>b.y-a.y||b.x-a.x).map(b=><g key={b.id}>{blockSides(b).map((side,i)=><polygon key={i} points={side.points} fill={side.top?colors[b.material].top:colors[b.material].side} stroke={colors[b.material].edge} strokeWidth="1.25" strokeLinejoin="round"/>)}</g>)}
+  </g>
   {[...blocks].sort((a,b)=>Math.round(b.y/2)-Math.round(a.y/2)||b.x-a.x).map(b=>{
-   const p=project(b.x,b.y),w=b.w*1.4,h=b.h*1.02,c=colors[b.material],lv=difficulty(b),isTarget=b.id===target;
+   const p=project(b.x,b.y),w=(b.w-1.3)*1.4,h=(b.h-1.3)*1.02,c=colors[b.material],lv=difficulty(b),isTarget=b.id===target;
    const cos=Math.cos(b.a),sin=Math.sin(b.a);
    return <g key={b.id} role="button" aria-label={`${b.id}번 ${MATERIALS[b.material]} 블록, ${levels[lv]}, 남은 단단함 ${b.hp}`} aria-pressed={isTarget} aria-disabled={locked} tabIndex={locked?-1:0}
     onClick={()=>{if(!locked)onSelect(b)}} onKeyDown={e=>{if((e.key==="Enter"||e.key===" ")&&!locked){e.preventDefault();onSelect(b)}}}
     style={{cursor:locked?"default":"crosshair"}} transform={`translate(${p.x} ${p.y}) matrix(${cos} ${sin*1.02/1.4} ${-sin*1.4/1.02} ${cos} 0 0)`}>
-    <path d={`M${-w/2} ${-h/2} l8 -9 h${w} l-8 9Z`} fill={c.top} stroke={c.edge} strokeWidth="1.5"/>
-    <path d={`M${w/2} ${-h/2} l8 -9 v${h} l-8 9Z`} fill={c.side} stroke={c.edge} strokeWidth="1.5"/>
-    <rect className="block-face" x={-w/2} y={-h/2} width={w} height={h} rx="3" fill={c.front} stroke={isTarget?"#2857ed":c.edge} strokeWidth={isTarget?5:2}/>
+    <rect className="block-face" x={-w/2} y={-h/2} width={w} height={h} rx="1" fill={c.front} stroke={isTarget?"#2857ed":c.edge} strokeWidth={isTarget?3:1.25}/>
     <path d={`M${-w/2+6} ${-h/2+6} H${w/2-6}`} stroke={c.top} strokeWidth="3"/>
     {b.material===1?<path d={`M${-w/2+8} ${-h/2} v${h} M${w/2-8} ${-h/2} v${h}`} stroke="#815431" strokeWidth="4" opacity=".6"/>:null}
     {b.maxHp>b.hp?<path d={`M0 ${-h/2} l-8 12 l13 9 l-8 14`} fill="none" stroke="#34465b" strokeWidth="3"/>:null}
