@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {makeQuestion,isCorrect,publicQuestion} from '../lib/questions.ts';
 import {initialBlocks,simulateShot,difficulty,score,SHELF,FALL_CLEAR_Y,blockProperties,rebalanceBlocks} from '../lib/physics.ts';
 import {playbackPosition} from '../lib/playback.ts';
@@ -36,6 +37,17 @@ function verifyFalls(result){
  }
 }
 verifyFalls(topShot);verifyFalls(lowerShot);
+// Captured stage 9 regression: the old four-second cutoff left three blocks
+// in free fall. They must reach the exit before play becomes available again.
+const late=JSON.parse(readFileSync(new URL('./fixtures/late-collapse.json',import.meta.url),'utf8').replace(/^\uFEFF/,''));
+const resolved=simulateShot(late.blocks,late.target);
+assert(resolved.frames.length>80,'A late cascade must extend beyond four seconds');
+assert(resolved.frames[79].blocks.some(b=>b.y>SHELF.y&&b.vy>1),'The regression really is still falling at four seconds');
+assert(!resolved.blocks.some(b=>[5,9,10].includes(b.id)),'All three falling blocks must finish their fall');
+assert.deepEqual(resolved.frames.at(-1).blocks,resolved.blocks,'The saved state must match the final visible frame');
+assert(resolved.blocks.every(b=>Math.hypot(b.vx,b.vy)<.05&&Math.abs(b.va)<.001),'Remaining blocks must be resting');
+assert.equal(playbackPosition(4100,100,resolved.frames.length).done,false,'Long cascades must remain animated past four seconds');
+verifyFalls(resolved);
 // Isolated airborne blocks remove contact friction from the comparison.
 // Damage must not alter the shot impulse, spin, mass, gravity or air drag.
 const airborne={id:1,x:690,y:40,w:56,h:36,a:0,hp:3,maxHp:3,material:2};
@@ -70,7 +82,7 @@ assert(adjusted.every(b=>b.maxHp<=2));
 assert.deepEqual(rebalanceBlocks(7,adjusted),adjusted,'Reloading must not repeatedly change damage');
 for(let s=1;s<=12;s++){
  let b=initialBlocks(s);assert(b.length>5);assert(b.every(x=>x.y<490));const total=b.length;let shots=0;
- while(b.length&&shots<55){const target=[...b].sort((a,b)=>b.y-a.y||a.x-b.x)[0];assert(difficulty(target)>=1);const result=simulateShot(b,target.id);verifyFalls(result);b=result.blocks;shots++}
+ while(b.length&&shots<55){const target=[...b].sort((a,b)=>b.y-a.y||a.x-b.x)[0];assert(difficulty(target)>=1);const result=simulateShot(b,target.id);verifyFalls(result);assert.deepEqual(result.frames.at(-1).blocks,result.blocks);assert(result.blocks.every(b=>Math.hypot(b.vx,b.vy)<.05&&Math.abs(b.va)<.001));b=result.blocks;shots++}
  assert.equal(b.length,0,`stage ${s} failed to clear`);stages.push({stage:s,blocks:total,shots});
 }
 assert(stages[6].shots<=10,'Stage 7 should take substantially fewer shots than the previous 19-shot baseline');

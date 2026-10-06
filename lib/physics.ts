@@ -37,6 +37,22 @@ function world(blocks:Block[]){
  Composite.add(engine.world,[base,...bodies]);return {engine,bodies};
 }
 function snapshots(bodies:Matter.Body[],map:Map<number,Block>):Block[]{return bodies.filter(b=>map.has(+b.label)).map(b=>({...map.get(+b.label)!,x:+b.position.x.toFixed(3),y:+b.position.y.toFixed(3),a:+b.angle.toFixed(5),vx:+b.velocity.x.toFixed(4),vy:+b.velocity.y.toFixed(4),va:+b.angularVelocity.toFixed(5)}));}
+function wakeUnsupported(engine:Matter.Engine){
+ // Sleeping pairs can retain old contacts after their support has moved away.
+ // Recheck the current geometry, then wake any disconnected floating group.
+ const bodies=Composite.allBodies(engine.world),supported=new Set(bodies.filter(b=>b.isStatic));
+ const contacts=new Map(bodies.map(b=>[b,new Set<Matter.Body>()]));
+ for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++){
+  if(Matter.Collision.collides(bodies[i],bodies[j])){
+   contacts.get(bodies[i])!.add(bodies[j]);contacts.get(bodies[j])!.add(bodies[i]);
+  }
+ }
+ const queue=[...supported];
+ for(let i=0;i<queue.length;i++)for(const neighbor of contacts.get(queue[i])!){
+  if(!supported.has(neighbor)){supported.add(neighbor);queue.push(neighbor);}
+ }
+ for(const b of bodies)if(b.isSleeping&&!supported.has(b))Matter.Sleeping.set(b,false);
+}
 function settle(blocks:Block[]){const {engine,bodies}=world(blocks);for(let i=0;i<100;i++)Engine.update(engine,1000/60);const out=snapshots(bodies,new Map(blocks.map(b=>[b.id,b])));Engine.clear(engine);return out;}
 export function difficulty(block:Block):1|2|3{return block.y>=385?3:block.y>=315?2:1}
 export function simulateShot(blocks:Block[],targetId:number){
@@ -46,7 +62,11 @@ export function simulateShot(blocks:Block[],targetId:number){
  const impactStep=32,targetBody=bodies.find(b=>+b.label===targetId)!;
  // The shot travels along depth from the viewer, so neighboring front faces do
  // not intercept it sideways. Matter handles the resulting collapse in x/y.
- for(let t=0;t<240;t++){
+ let settled=false;
+ // Four seconds is a minimum playback, not a physics deadline. A slow cascade
+ // must finish before the next question can freeze the scene. The safety limit
+ // rejects an unresolved shot instead of saving moving blocks as a final state.
+ for(let t=0;t<3600;t++){
    if(t===impactStep){
      const hit=map.get(targetId);
      if(hit){
@@ -69,9 +89,14 @@ export function simulateShot(blocks:Block[],targetId:number){
        map.delete(+body.label);Composite.remove(engine.world,body);
      }
    }
-   if(t%3===0){frames.push({blocks:snapshots(bodies,map),ball:t<impactStep?{x:targetBody.position.x,y:targetBody.position.y,depth:1-t/impactStep}:undefined,broken});broken=[];}
+   if(t%3===0){
+     wakeUnsupported(engine);
+     frames.push({blocks:snapshots(bodies,map),ball:t<impactStep?{x:targetBody.position.x,y:targetBody.position.y,depth:1-t/impactStep}:undefined,broken});broken=[];
+     if(t>=237&&bodies.every(b=>!map.has(+b.label)||b.isSleeping)){settled=true;break;}
+   }
  }
  const result=snapshots(bodies,map);Engine.clear(engine);
+ if(!settled)throw Error("블록의 움직임을 끝까지 계산하지 못했어요.");
  return {blocks:result,frames,cleared:blocks.length-result.length};
 }
 export function score(shots:number,errors:number,speedTotal:number){if(!shots)return 0;return Math.round(70000/(1+(shots-1)*.25)+20000*shots/(shots+errors)+10000*speedTotal/shots)}

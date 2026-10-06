@@ -1,6 +1,7 @@
 import {env} from "cloudflare:workers";
 import {initialBlocks,rebalanceBlocks,difficulty,simulateShot,score,type Block} from "./physics";
 import {makeQuestion,isCorrect,publicQuestion,type Question} from "./questions";
+import {PLAYBACK_FRAME_MS} from "./playback";
 export const SEASON="2026-pilot-1";
 type Challenge={q:Question;target:number;opened:number;errors:number;hints:number;ready:boolean;explanation?:string};
 type State={blocks:Block[];total:number;shots:number;errors:number;milliseconds:number;speedTotal:number;done:boolean;challenge?:Challenge;cooldown:number};
@@ -57,7 +58,7 @@ export async function act(user:Player,body:Record<string,unknown>){
    else{s.errors++;c.errors++;extra.feedback="다시 생각해 볼까요? 힌트를 눌러도 좋아요.";}
  } else if(body.action==="fire"){
    const c=s.challenge;if(!c?.ready)throw new GameError("문제를 맞히면 발사할 수 있어요.");
-   const result=simulateShot(s.blocks,c.target);s.blocks=result.blocks;s.shots++;s.done=s.blocks.length===0;s.challenge=undefined;s.cooldown=now+4000;extra={frames:result.frames,cleared:result.cleared};
+   const result=simulateShot(s.blocks,c.target);s.blocks=result.blocks;s.shots++;s.done=s.blocks.length===0;s.challenge=undefined;s.cooldown=now+result.frames.length*PLAYBACK_FRAME_MS;extra={frames:result.frames,cleared:result.cleared};
  } else throw new GameError("알 수 없는 요청이에요.");
  const update=db().prepare("UPDATE runs SET state=?,revision=revision+1,updated_at=? WHERE id=? AND player_id=? AND revision=?").bind(JSON.stringify(s),now,row.id,user.id,row.revision);
  const out=await update.run();if(out.meta.changes!==1)throw new GameError("다른 요청이 처리되었어요. 화면을 새로고침해 주세요.",409);
