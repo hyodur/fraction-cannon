@@ -1,0 +1,54 @@
+name: School portable Windows package
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'school/**'
+      - '.github/workflows/school-portable.yml'
+permissions:
+  contents: read
+concurrency:
+  group: school-portable-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - name: Install build dependencies
+        working-directory: preview-3d
+        run: npm install --no-audit --no-fund
+      - name: Build the unchanged game
+        working-directory: preview-3d
+        run: npm run build
+        timeout-minutes: 7
+      - name: Bundle verified Windows runtime and licenses
+        run: ./school/package.ps1
+      - name: Extract and test the school package offline
+        run: |
+          $repoRoot = (Get-Location).Path
+          $packageRoot = Join-Path $repoRoot 'school-output'
+          $archivePath = Join-Path $repoRoot 'school-roundtrip.zip'
+          $testRoot = Join-Path $repoRoot 'school-test/학교 테스트 폴더'
+          Compress-Archive -Path (Join-Path $packageRoot '*') -DestinationPath $archivePath
+          Expand-Archive -LiteralPath $archivePath -DestinationPath $testRoot
+          & (Join-Path $testRoot 'runtime/node.exe') --experimental-strip-types ./school/offline.test.mjs $testRoot
+          if ($LASTEXITCODE -ne 0) { throw 'School package offline test failed.' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fraction-cannon-school-windows-x64
+          path: school-output/
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: school-package-test
+          path: school-offline-test.png
