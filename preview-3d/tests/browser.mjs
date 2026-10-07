@@ -2,7 +2,7 @@ import {chromium} from "playwright";
 import {spawn} from "node:child_process";
 import {mkdir} from "node:fs/promises";
 import assert from "node:assert/strict";
-const server=spawn(process.execPath,["node_modules/vite/bin/vite.js","--host","127.0.0.1"],{stdio:"inherit"});
+const server=spawn(process.execPath,["serve-preview.mjs","--no-open"],{stdio:"inherit"});
 let browser,page;
 try{
  for(let i=0;i<60;i++){try{const r=await fetch("http://127.0.0.1:5174");if(r.ok)break;}catch{}await new Promise(r=>setTimeout(r,500));}

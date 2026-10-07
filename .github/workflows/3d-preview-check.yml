@@ -39,3 +39,5 @@ jobs:
             preview-3d/dist
             preview-3d/test-results
             preview-3d/package-lock.json
+            preview-3d/serve-preview.mjs
+            preview-3d/start-3d.cmd
