@@ -1,10 +1,6 @@
 name: 3D balance calibration
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'tools/3d-balance.ts'
-      - '.github/workflows/3d-balance.yml'
 permissions:
   contents: read
 jobs:
