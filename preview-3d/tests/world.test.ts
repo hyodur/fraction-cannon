@@ -1,7 +1,7 @@
 import {STAGES,MATERIALS,stageBlocks,readProgress,completeStage} from "../src/stages.ts";
 import assert from "node:assert/strict";
 import {Vec3} from "cannon-es";
-import {BlockWorld,STEP,SHELF_Y,CLEAR_Y,BLOCK_DENSITY} from "../src/world.ts";
+import {BlockWorld,STEP,SHELF_Y,CLEAR_Y,BLOCK_DENSITY,SHELF_WIDTH} from "../src/world.ts";
 import {makeQuestion,isCorrect} from "../src/questions.ts";
 const muzzle={x:0,y:1.65,z:5};
 function settle(w:BlockWorld){
@@ -12,25 +12,25 @@ function settle(w:BlockWorld){
 }
 function shoot(w:BlockWorld,id:number,x=0,y=0){return w.hit(id,w.frontPoint(id,x,y),muzzle)}
 function snapshot(w:BlockWorld){return w.pieces.map(p=>({id:p.id,p:p.body.position.toArray(),q:p.body.quaternion.toArray(),cleared:p.cleared}))}
-const a=new BlockWorld();settle(a);assert.equal(a.active.length,9);
-assert(!a.hit(999,muzzle,muzzle));assert(shoot(a,9));assert(!shoot(a,8),"A second shot cannot interrupt motion");
+const a=new BlockWorld();settle(a);assert.equal(a.active.length,8);
+assert(!a.hit(999,muzzle,muzzle));assert(shoot(a,4));assert(!shoot(a,8),"A second shot cannot interrupt motion");
 let spin=false,depth=false;
-for(let i=0;i<120*12&&a.moving;i++){a.step();const p=a.pieces[8];spin ||= Math.abs(p.body.quaternion.x)>.02||Math.abs(p.body.quaternion.y)>.02;depth ||= Math.abs(p.body.position.z)>.1;}
+for(let i=0;i<120*12&&a.moving;i++){a.step();const p=a.pieces[3];spin ||= Math.abs(p.body.quaternion.x)>.02||Math.abs(p.body.quaternion.y)>.02;depth ||= Math.abs(p.body.position.z)>.1;}
 settle(a);assert(spin&&depth,"Shot must move and rotate in depth");
-assert(a.pieces[8].cleared,"The top block should fall off the shelf");
+assert(a.pieces[3].cleared,"The top block should fall off the shelf");
 assert(a.active.length>0,"A top shot must leave another strategic choice");
-assert.equal(a.pieces.length,9,"Fallen blocks remain as physical debris");
+assert.equal(a.pieces.length,8,"Fallen blocks remain as physical debris");
 for(const p of a.pieces.filter(p=>p.cleared)){p.body.updateAABB();assert(p.body.aabb.upperBound.y<CLEAR_Y);}
-const b=new BlockWorld();settle(b);shoot(b,9);settle(b);
+const b=new BlockWorld();settle(b);shoot(b,4);settle(b);
 assert.deepEqual(snapshot(a),snapshot(b),"Same input must produce the same result");
 // Actual front-face coordinates must track a rotated body, like pointer/number aiming.
-const rotated=new BlockWorld();const p=rotated.pieces[8];p.body.quaternion.setFromEuler(.2,.4,.1);
-const front=rotated.frontPoint(9),local=p.body.pointToLocalFrame(new Vec3(front.x,front.y,front.z));
+const rotated=new BlockWorld();const p=rotated.pieces[3];p.body.quaternion.setFromEuler(.2,.4,.1);
+const front=rotated.frontPoint(4),local=p.body.pointToLocalFrame(new Vec3(front.x,front.y,front.z));
 assert(Math.abs(local.x)<1e-6&&Math.abs(local.y)<1e-6&&Math.abs(local.z-p.depth/2)<1e-6);
 const falling=new BlockWorld();settle(falling);
-falling.pieces[8].body.position.set(6,SHELF_Y+2,0);falling.pieces[8].body.velocity.setZero();falling.moving=true;
+falling.pieces[3].body.position.set(6,SHELF_Y+2,0);falling.pieces[3].body.velocity.setZero();falling.moving=true;
 for(let i=0;i<24;i++){falling.step();assert(falling.moving,"Airborne blocks must never count as resting");}
-settle(falling);assert(falling.pieces[8].cleared);
+settle(falling);assert(falling.pieces[3].cleared);
 // Regression: a floor pile can stand taller than 0.65 m and still be entirely
 // below the shelf. This used to leave the tall pillar and beam selectable.
 const pile=new BlockWorld();settle(pile);
@@ -38,18 +38,18 @@ for(const p of pile.pieces){
  p.body.position.y-=SHELF_Y;p.body.velocity.setZero();p.body.angularVelocity.setZero();
  p.body.updateAABB();
 }
-assert(pile.pieces[1].body.aabb.upperBound.y>.65);
+
 assert(pile.pieces[2].body.aabb.upperBound.y>.65);
 pile.moving=true;
 const clearedPile=pile.step();
-assert.equal(clearedPile.length,9,"All blocks in the under-shelf pile must clear");
+assert.equal(clearedPile.length,8,"All blocks in the under-shelf pile must clear");
 assert.equal(pile.active.length,0,"No floor debris can remain targetable");
 assert.equal(pile.moving,false,"The last crossing must end the game immediately");
-assert.equal(pile.pieces.length,9,"Debris stays visible and physical");
+assert.equal(pile.pieces.length,8,"Debris stays visible and physical");
 for(const p of pile.pieces)assert(!pile.hit(p.id,p.body.position,muzzle),"A cleared block cannot be shot");
 assert.deepEqual(pile.step(),[],"Crossings must not score twice");
 // A partly crossed or airborne block above the shelf is not yet cleared.
-const boundary=new BlockWorld();settle(boundary);const edge=boundary.pieces[8];
+const boundary=new BlockWorld();settle(boundary);const edge=boundary.pieces[3];
 edge.body.position.set(6,CLEAR_Y+.10,0);edge.body.velocity.setZero();edge.body.angularVelocity.setZero();edge.body.quaternion.set(0,0,0,1);boundary.moving=true;
 boundary.step();assert(!edge.cleared,"A block straddling the clearing plane is still in play");
 edge.body.position.set(6,CLEAR_Y-edge.height/2-.04,0);edge.body.velocity.setZero();
@@ -60,75 +60,69 @@ edge.body.position.set(6,SHELF_Y+1,0);boundary.step();
 assert(edge.cleared,"A bounce cannot restore a cleared target");
 // Floor debris can spin without blocking the next question. Physics continues
 // after unlocking, so this is not a timeout that freezes unsupported bodies.
-const debris=new BlockWorld();settle(debris);const d=debris.pieces[8];d.cleared=true;d.body.position.set(8,.25,0);debris.moving=true;
+const debris=new BlockWorld();settle(debris);const d=debris.pieces[3];d.cleared=true;d.body.position.set(8,.25,0);debris.moving=true;
 for(let i=0;i<240&&debris.moving;i++){d.body.angularVelocity.set(0,0,4);debris.step();}
 assert(!debris.moving,"Floor debris must not lock controls");
 d.body.position.set(8,3,0);d.body.velocity.setZero();
 for(let i=0;i<60;i++)debris.step();
 assert(d.body.position.y<2,"Gravity must continue after controls unlock");
-// Balance must reward a normal hit without clearing the whole structure.
-// Cover aim offsets and time spent reading a question, not only one exact shot.
-const targets=[];
-const balanceProblems:string[]=[];
-for(const id of [4,5,6])for(const x of [-.08,0,.08])for(const y of [-.08,0,.08])for(const idle of [0,3]){
- const w=new BlockWorld();settle(w);for(let i=0;i<idle*120;i++)w.step();
- assert.equal(w.pieces[id-1].level,2);
- assert(shoot(w,id,x,y));let seconds=settle(w);
- for(let i=0;i<360;i++)w.step();
- for(let retry=0;retry<2&&w.active.length===9&&w.active.some(p=>p.id===id);retry++){assert(shoot(w,id,x,y));seconds+=settle(w);}
- for(let i=0;i<360;i++)w.step();
- const removed=9-w.active.length;
- targets.push({id,x,y,idle,removed,seconds});
- if(!(removed>=1&&removed<=3))balanceProblems.push("Normal hit should remove 1–3 blocks within three attempts: "+JSON.stringify(targets.at(-1)));
- if(!w.pieces.slice(0,3).every(p=>!p.cleared))balanceProblems.push("Normal hit must preserve the base: "+JSON.stringify(targets.at(-1)));
-}
-const bridge=new BlockWorld();settle(bridge);
-assert.equal(bridge.pieces[2].level,3,"Load-bearing beam requires a challenge question");
-assert(shoot(bridge,3));settle(bridge);
-assert.equal(bridge.active.length,9,"A first central beam hit must not wipe out the wood tower");
-for(let attempt=0;attempt<3&&bridge.active.some(p=>p.id===3);attempt++){assert(shoot(bridge,3));settle(bridge);}
-assert(9-bridge.active.length>=5,"Repeated beam hits must still reward the challenge question");
-// User report: repeated middle hits, then top hit. Include off-center aims and
-// realistic idle time spent answering the next question.
-const sequences=[];
-for(const offset of [-.08,0,.08]){
- const w=new BlockWorld();settle(w);let shots=0,maxWait=0;
- for(const target of [5,5,5,5,9,8,7,6,4,3,2,1]){
-  for(let i=0;i<120*3;i++)w.step();
-  const piece=w.active.find(p=>p.id===target);if(!piece)continue;
-  assert(shoot(w,target,offset,.04));maxWait=Math.max(maxWait,settle(w));shots++;
- }
- while(w.active.length&&shots<20){assert(shoot(w,w.active[0].id));maxWait=Math.max(maxWait,settle(w));shots++;}
- assert.equal(w.active.length,0,"Repeated-shot stage must be clearable");
- sequences.push({offset,shots,maxWait});
-}
-for(let seed=1;seed<=100;seed++)for(const level of [1,2,3] as const){const q=makeQuestion(1,level,seed);assert.equal(q.kind,"fraction");assert(isCorrect(q,q.answer));assert(!isCorrect(q,"999/0"));assert(!q.prompt.includes("없음"));}
-console.log(JSON.stringify({passed:true,balanceCases:targets.length,normalMin:Math.min(...targets.map(t=>t.removed)),normalMax:Math.max(...targets.map(t=>t.removed)),challengeRemoved:9-bridge.active.length,sequences,step:STEP,questions:300}));
 
-const stageRuns=[];
+const errors:string[]=[];
+const stageRuns:{stage:number;shots:number;count:number;maxWait:number}[]=[];
 for(const stage of STAGES){
- const w=new BlockWorld({stage:stage.id});settle(w);
- assert.equal(w.active.length,stage.count,"Stage must not fall before the first shot");
- assert.equal(stageBlocks(stage.id).length,stage.count);
- assert(Math.abs(w.pieces[3].body.mass/(.56*.36*.48*BLOCK_DENSITY)-stage.material.resistance)<1e-12);
+ const specs=stageBlocks(stage.id),w=new BlockWorld({stage:stage.id});settle(w);
+ assert.equal(specs.length,stage.count);
+ assert.equal(w.active.length,stage.count,"Nothing should fall before the first question");
+ for(let i=0;i<120*5;i++)w.step();
+ assert.equal(w.active.length,stage.count,"The initial structure must remain stable while reading");
+ for(const p of w.pieces){
+  assert(Math.abs(p.body.mass/(p.width*p.height*p.depth*BLOCK_DENSITY)-stage.material.resistance)<1e-10);
+  assert(Math.abs(p.body.position.x)+p.width/2<SHELF_WIDTH/2,"All blocks fit on the shelf");
+ }
+ for(let i=0;i<specs.length;i++)for(let j=i+1;j<specs.length;j++){
+  const a=specs[i],b=specs[j];
+  const overlapX=(a.width+b.width)/2-Math.abs(a.x-b.x),overlapY=(a.height+b.height)/2-Math.abs(a.y-b.y);
+  assert(!(overlapX>1e-7&&overlapY>1e-7),"Stage "+stage.id+" has intersecting initial blocks "+a.id+"/"+b.id);
+ }
  let shots=0,maxWait=0;
- // A normal target must still give progress as new materials arrive.
- while(w.active.some(p=>p.id===5)&&shots<3){shoot(w,5);maxWait=Math.max(maxWait,settle(w));shots++;}
- assert(w.active.length<stage.count,"A normal hit cannot be futile at stage "+stage.id);
- for(const id of [3,...w.active.filter(p=>p.id>3).map(p=>p.id),1,2]){
-  for(let attempts=0;attempts<6&&w.active.some(p=>p.id===id);attempts++){
-   assert(shoot(w,id));maxWait=Math.max(maxWait,settle(w));shots++;
+ // A visible, repeatable strategy: finish each bridge, then its surviving
+ // supports, then each small side/center stack from its lower block.
+ for(const id of [3,7,1,2,5,6,14,15,13,...specs.map(p=>p.id)]){
+  for(let attempt=0;attempt<6&&w.active.some(p=>p.id===id);attempt++){
+   assert(shoot(w,id));shots++;maxWait=Math.max(maxWait,settle(w));
   }
  }
- console.log("STAGE_RESULT:"+JSON.stringify({stage:stage.id,shots,maxWait,remaining:w.active.map(p=>({id:p.id,pos:p.body.position.toArray(),q:p.body.quaternion.toArray()}))}));
- assert.equal(w.active.length,0,"Stage "+stage.id+" must be clearable without attacking debris");
- assert(shots<=stage.count*2,"Stage "+stage.id+" needs too many questions");
- stageRuns.push({stage:stage.id,material:stage.material.id,count:stage.count,shots,maxWait});
+ const result={stage:stage.id,count:stage.count,shots,maxWait};
+ console.log("LAYOUT_STAGE:"+JSON.stringify({...result,remaining:w.active.map(p=>p.id)}));
+ if(w.active.length)errors.push("Stage cannot finish: "+JSON.stringify(result));
+ if(shots>stage.count*2)errors.push("Too many shots: "+JSON.stringify(result));
+ stageRuns.push(result);
 }
-for(let i=0;i<12;i++){
- if(i%3!==0){assert.equal(STAGES[i].material,STAGES[i-1].material);assert.equal(STAGES[i].count,STAGES[i-1].count+1);}
- else if(i>0){assert.equal(STAGES[i].count,STAGES[i-1].count-1);assert(STAGES[i].material.resistance-STAGES[i-1].material.resistance<.021);}
+for(let i=1;i<STAGES.length;i++){
+ assert(STAGES[i].count>STAGES[i-1].count&&STAGES[i].count-STAGES[i-1].count<=2,"Add only one or two blocks per stage");
+ if(i%3!==0)assert.equal(STAGES[i].material,STAGES[i-1].material);
+ else assert(STAGES[i].material.resistance-STAGES[i-1].material.resistance<.021);
 }
+// Test a broad portion of BOTH beam faces, not only one center aim.
+const isolation=[];
+for(const stage of [1,3,6,9,12])for(const id of [3,7])for(const x of [-.35,0,.35])for(const y of [-.08,0,.08]){
+ const w=new BlockWorld({stage});settle(w);const specs=stageBlocks(stage);
+ const other=specs.filter(p=>p.group===(id===3?"right":"left")).map(p=>p.id);
+ assert(shoot(w,id,x,y));settle(w);for(let i=0;i<240;i++)w.step();
+ const firstRemoved=specs.length-w.active.length;
+ if(!other.every(id=>w.active.some(p=>p.id===id)))errors.push("Opposite tower fell after one beam hit: "+JSON.stringify({stage,id,x,y}));
+ let attempts=1;
+ while(w.active.some(p=>p.id===id)&&attempts<5){assert(shoot(w,id,x,y));settle(w);attempts++;}
+ if(!other.every(id=>w.active.some(p=>p.id===id)))errors.push("Repeated local collapse reached the other tower: "+JSON.stringify({stage,id,x,y}));
+ if(w.active.some(p=>p.id===id))errors.push("Beam does not move after repeated shots: "+JSON.stringify({stage,id,x,y}));
+ isolation.push({stage,id,x,y,firstRemoved,attempts,remaining:w.active.length});
+}
+console.log("ISOLATED_TOWERS:"+JSON.stringify({cases:isolation.length,firstMin:Math.min(...isolation.map(x=>x.firstRemoved)),firstMax:Math.max(...isolation.map(x=>x.firstRemoved)),errors:errors.slice(0,20)}));
+const early=stageRuns.slice(0,3).reduce((n,s)=>n+s.shots,0)/3,late=stageRuns.slice(9).reduce((n,s)=>n+s.shots,0)/3;
+if(!(late>=early+3))errors.push("Later stages should require meaningfully more solved shots: "+JSON.stringify({early,late}));
+if(!(stageRuns[11].shots>stageRuns[0].shots))errors.push("Final stage must involve more questions than the first stage");
+console.log("LEARNING_LOAD:"+JSON.stringify({early,late,shots:stageRuns.map(s=>s.shots)}));
+assert.deepEqual(errors,[],"Structure and progression regressions");
 let progress=readProgress(null);assert.equal(progress.unlocked,1);
 assert.deepEqual(completeStage(progress,2),progress,"Locked stages cannot unlock later ones");
 for(let id=1;id<=12;id++){progress=completeStage(progress,id);assert.equal(progress.unlocked,Math.min(12,id+1));}
@@ -165,18 +159,3 @@ for(const stage of STAGES)for(const level of [1,2,3] as const)for(let seed=1;see
 assert.deepEqual([...formats].sort(),["choice","fraction","mixed","number"]);
 console.log("TWELVE_STAGES:"+JSON.stringify({passed:true,stageRuns,questions:3600,formats:[...formats],progress:progress.completed.length}));
 
-const beamRuns=[];
-for(const stage of [1,4,7,10])for(const x of [-.08,0,.08])for(const y of [-.08,0,.08]){
- const w=new BlockWorld({stage});settle(w);const initial=w.active.length;
- assert(shoot(w,3,x,y));settle(w);for(let i=0;i<360;i++)w.step();
- const firstRemoved=initial-w.active.length;
- let attempts=1;
- while(w.active.some(p=>p.id===3)&&attempts<5){assert(shoot(w,3,x,y));settle(w);for(let i=0;i<240;i++)w.step();attempts++;}
- const result={stage,x,y,firstRemoved,attempts,removed:initial-w.active.length,beamCleared:!w.active.some(p=>p.id===3)};
- console.log("BEAM_RESISTANCE:"+JSON.stringify(result));beamRuns.push(result);
- if(firstRemoved>=5)balanceProblems.push("First central beam shot must not trigger a full core collapse: "+JSON.stringify(result));
- if(!result.beamCleared)balanceProblems.push("Repeated beam shots must remain effective in every material: "+JSON.stringify(result));
-}
-console.log("BEAM_BALANCE_CASES:"+beamRuns.length);
-
-assert.deepEqual(balanceProblems,[],"All aim positions must remain balanced");

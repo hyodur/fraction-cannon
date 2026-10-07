@@ -1,14 +1,16 @@
 import {getStage,stageBlocks} from "./stages.ts";
 import {Body,Box,ContactMaterial,GSSolver,Material,Vec3,World} from "cannon-es";
 export const SHELF_Y=2.2;
+export const SHELF_WIDTH=5.4;
+export const SHELF_LEG_X=2.45;
 export const SHELF_THICKNESS=.20;
 // A block is cleared once its entire rotated bounds pass below the shelf.
 export const CLEAR_Y=SHELF_Y-SHELF_THICKNESS-.02;
 export const STEP=1/120;
 export const BALL_MASS=.65;
 export const BALL_SPEED=8;
-// Fixed density for every block of a material; increased inertia prevents a
-// fully loaded beam from collapsing the tower with its first central hit.
+// Fixed density within each material. Separate supports, rather than hidden
+// hit-count gates, keep one local collapse from solving the entire stage.
 export const BLOCK_DENSITY=4.38;
 export function impactImpulse(mass:number,speed=BALL_SPEED){return 1.1*BALL_MASS*mass/(BALL_MASS+mass)*speed;}
 export type Point={x:number;y:number;z:number};
@@ -36,15 +38,15 @@ export class BlockWorld{
    this.statics.push(body);this.world.addBody(body);
   };
   fixed(0,-.12,0,40,.24,40);
-  fixed(0,SHELF_Y-SHELF_THICKNESS/2,0,3.6,SHELF_THICKNESS,1.20);
-  fixed(-1.5,1.05,-.35,.13,2.10,.13);fixed(1.5,1.05,-.35,.13,2.10,.13);
+  fixed(0,SHELF_Y-SHELF_THICKNESS/2,0,SHELF_WIDTH,SHELF_THICKNESS,1.20);
+  fixed(-SHELF_LEG_X,1.05,-.35,.13,2.10,.13);fixed(SHELF_LEG_X,1.05,-.35,.13,2.10,.13);
   const add=(x:number,y:number,w:number,h:number,level:1|2|3,depth=.48)=>{
    const body=new Body({mass:w*h*depth*BLOCK_DENSITY*stage.material.resistance,material:wood,shape:new Box(new Vec3(w/2,h/2,depth/2)),position:new Vec3(x,SHELF_Y+y,0),linearDamping:.12,angularDamping:.18});
    const piece:Piece={id:this.pieces.length+1,width:w,height:h,depth,level,body,cleared:false};
    this.pieces.push(piece);this.world.addBody(body);
   };
   for(const block of stageBlocks(stage.id)){
-   add(block.x,block.y,block.width,block.height,block.level,block.id<=2?(options.supportDepth??block.depth):block.depth);
+   add(block.x,block.y,block.width,block.height,block.level,block.role==="support"?(options.supportDepth??block.depth):block.depth);
   }
   for(let i=0;i<180;i++)this.step();
  }

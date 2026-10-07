@@ -82,7 +82,7 @@ export function Game(){
   <section className="intro"><div><p className="eyebrow">STAGE {String(stageId).padStart(2,"0")} / 12 · {stage.topic}</p><h1>{stage.title}</h1><p>문제를 풀고, 가장 멋진 한 발을 날려요.</p></div><p className="curriculum">초등 3학년 · 2학기</p></section>
   <section className="stage-strip" aria-label="단계와 재질">
    <label>단계 선택 <select aria-label="단계 선택" value={stageId} disabled={busy||!!question} onChange={e=>startStage(Number(e.target.value))}>{STAGES.map(s=><option key={s.id} value={s.id} disabled={s.id>progress.unlocked}>{s.id}단계 · {s.material.name}{progress.completed.includes(s.id)?" ✓":s.id>progress.unlocked?" · 잠김":""}</option>)}</select></label>
-   <span className={"material-tag material-"+stage.material.id}>{stage.material.name} 블록</span><span>처음 블록 {stage.count}개</span><span>{stage.step===0&&stageId>1?"새 재질은 적은 블록으로 천천히!":"같은 재질은 같은 단단함"}</span>
+   <span className={"material-tag material-"+stage.material.id}>{stage.material.name} 블록</span><span>처음 블록 {stage.count}개</span><span>{stage.layout} · 같은 재질은 같은 단단함</span>
   </section>
   <div className="layout">
    <section className="arena" aria-label="3D 대포 게임">
@@ -103,7 +103,7 @@ export function Game(){
      {question.kind==="number"&&<label className="number-answer">답 <input aria-label="장수" inputMode="numeric" autoComplete="off" maxLength={3} value={number} onChange={e=>setNumber(digits(e.target.value))}/> 장</label>}
      {question.kind==="choice"&&<fieldset className="answer-choices"><legend>답을 고르세요</legend>{question.choices?.map((c,i)=><label key={c} className={choice===c?"chosen":""}><input type="radio" name="answer-choice" value={c} checked={choice===c} onChange={()=>setChoice(c)}/><span><MathText text={c}/></span></label>)}</fieldset>}
      <button className="primary" type="submit">정답 확인</button><button className="quiet-button" type="button" disabled={hints>=2} onClick={()=>setHints(n=>Math.min(2,n+1))}>힌트 {hints}/2</button>{question.hints.slice(0,hints).map(h=><p className="hint" key={h}><MathText text={h}/></p>)}
-    </form>}</>:<><span className="eyebrow">AIM · THINK · FIRE</span><h2>어디를 맞힐까요?</h2><p>위쪽을 맞히면 위의 블록부터,<br/>받침을 맞히면 연결된 블록도<br/>쓰러질 수 있어요.</p><div className="lesson-note">기둥과 긴 받침 블록에는<br/><strong>조금 더 어려운 도전 문제!</strong></div><p>{target===null?"공격할 블록을 골라 주세요.":target+"번 블록 · "+names[blockLevel(stageId,target)]}</p><button className="primary" disabled={target===null||busy||!graphics} onClick={openQuestion}>문제 풀고 공격하기</button></>}
+    </form>}</>:<><span className="eyebrow">AIM · THINK · FIRE</span><h2>어디를 맞힐까요?</h2><p>두 탑은 따로 서 있어요.<br/>한쪽 받침을 무너뜨린 뒤<br/>다음 탑도 공략해 보세요.</p><div className="lesson-note">각 탑의 기둥과 받침에는<br/><strong>조금 더 어려운 도전 문제!</strong></div><p>{target===null?"공격할 블록을 골라 주세요.":target+"번 블록 · "+names[blockLevel(stageId,target)]}</p><button className="primary" disabled={target===null||busy||!graphics} onClick={openQuestion}>문제 풀고 공격하기</button></>}
     {!done&&<p className="score-rule">이번 단계 오답 <b data-testid="mistake-count">{mistakes}</b>회 · 1회당 최종 점수 −150점<br/>틀려도 다시 풀 수 있어요. 실수 없이 성공하면 +200점!</p>}
     <p className="feedback" aria-live="polite">{message}</p>
    </aside>

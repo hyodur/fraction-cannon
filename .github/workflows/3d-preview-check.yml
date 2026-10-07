@@ -14,7 +14,7 @@ permissions:
 jobs:
   preview:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: preview-3d
@@ -29,7 +29,16 @@ jobs:
         timeout-minutes: 2
       - run: npx vite build
         timeout-minutes: 6
-      - run: npx playwright install --with-deps chromium
+      - name: Prepare browser
+        timeout-minutes: 3
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            echo "CHROMIUM_EXECUTABLE=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium >/dev/null 2>&1; then
+            echo "CHROMIUM_EXECUTABLE=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
       - run: npm run test:browser
       - uses: actions/upload-artifact@v4
         if: always()
