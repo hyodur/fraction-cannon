@@ -50,6 +50,27 @@ try{
  await page.getByRole("button",{name:"3번 블록, 도전"}).waitFor();
  const afterChallenge=await fireAt(3);
  assert(afterChallenge<afterNormal,"Challenge beam should have a larger effect than a normal block");
+ // If a support survives on the shelf, finish it. Floor piles must never
+ // require an extra question to make them short enough for a floor-height rule.
+ for(let i=0;i<6&&Number(await page.getByTestId("remaining").innerText())>0;i++){
+  const id=Number(await page.locator(".block-buttons button").first().innerText());await fireAt(id);
+ }
+ assert.equal(await page.getByTestId("remaining").innerText(),"0");
+ await page.getByRole("heading",{name:"멋진 작전이었어요!"}).waitFor();
+ assert.equal(await page.locator(".block-buttons button").count(),0);
+ assert.equal(await page.getByRole("button",{name:"문제 풀고 공격하기"}).count(),0);
+ assert.equal(await page.getByRole("button",{name:"대포 발사!"}).count(),0);
+ // Click across the visible debris region; completion must not reopen aiming.
+ const canvas=page.locator("canvas"),rect=await canvas.boundingBox();
+ for(const x of [.4,.5,.6])for(const y of [.55,.65,.75]){
+  await canvas.click({position:{x:rect.width*x,y:rect.height*y}});
+ }
+ await page.getByRole("heading",{name:"멋진 작전이었어요!"}).waitFor();
+ assert.equal(await page.getByTestId("remaining").innerText(),"0");
+ assert.equal(await page.getByRole("button",{name:"문제 풀고 공격하기"}).count(),0);
+ await page.screenshot({path:"test-results/3d-completed.png",fullPage:true});
+ console.log("PREVIEW_COMPLETED_IMAGE:"+(await page.screenshot({type:"jpeg",quality:65,fullPage:true})).toString("base64"));
+ console.log("COMPLETION_CHECK:"+JSON.stringify({remaining:0,targetButtons:0,attackButtons:0,debrisClicks:9}));
  // A clean top-first shot must also unlock the next selection.
  await page.getByRole("button",{name:"처음부터 다시",exact:true}).click();await idle();
  await fireAt(9);
@@ -61,7 +82,7 @@ try{
  console.log("PREVIEW_MOBILE_IMAGE:"+(await page.locator(".arena").screenshot({type:"jpeg",quality:65})).toString("base64"));
  await page.getByRole("button",{name:"처음부터 다시",exact:true}).click();await page.waitForFunction(()=>document.querySelector('[data-testid="remaining"]').textContent==="9");
  assert.equal(await page.locator("canvas").count(),1);assert.deepEqual(errors,[]);
- console.log(JSON.stringify({passed:true,checks:["real WebGL canvas","wrong/right answers","middle hit","repeated shots","top-first settling","mobile width","reset disposal"],errors}));
+ console.log(JSON.stringify({passed:true,checks:["real WebGL canvas","wrong/right answers","middle hit","repeated shots","top-first settling","completion at zero","debris cannot be selected","mobile width","reset disposal"],errors}));
 }catch(error){
  if(page){console.log("BROWSER_FAILURE:"+JSON.stringify(await page.locator("body").innerText()));console.log("PREVIEW_FAILURE_IMAGE:"+(await page.locator(".arena").screenshot({type:"jpeg",quality:65})).toString("base64"));}
  throw error;

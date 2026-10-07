@@ -1,5 +1,8 @@
 import {Body,Box,ContactMaterial,GSSolver,Material,Vec3,World} from "cannon-es";
 export const SHELF_Y=2.2;
+export const SHELF_THICKNESS=.20;
+// A block is cleared once its entire rotated bounds pass below the shelf.
+export const CLEAR_Y=SHELF_Y-SHELF_THICKNESS-.02;
 export const STEP=1/120;
 export const BALL_MASS=.65;
 export const BALL_SPEED=8;
@@ -28,7 +31,7 @@ export class BlockWorld{
    this.statics.push(body);this.world.addBody(body);
   };
   fixed(0,-.12,0,40,.24,40);
-  fixed(0,SHELF_Y-.10,0,3.6,.20,1.20);
+  fixed(0,SHELF_Y-SHELF_THICKNESS/2,0,3.6,SHELF_THICKNESS,1.20);
   fixed(-1.5,1.05,-.35,.13,2.10,.13);fixed(1.5,1.05,-.35,.13,2.10,.13);
   const add=(x:number,y:number,w:number,h:number,level:1|2|3,depth=.48)=>{
    const body=new Body({mass:w*h*depth*3,material:wood,shape:new Box(new Vec3(w/2,h/2,depth/2)),position:new Vec3(x,SHELF_Y+y,0),linearDamping:.12,angularDamping:.18});
@@ -85,8 +88,11 @@ export class BlockWorld{
   const fallen:number[]=[];
   for(const p of this.pieces){
    p.body.updateAABB();
-   if(!p.cleared&&p.body.aabb.upperBound.y<.65){p.cleared=true;fallen.push(p.id);}
+   if(!p.cleared&&p.body.aabb.upperBound.y<CLEAR_Y){p.cleared=true;fallen.push(p.id);}
   }
+  // The objective is the shelf, not the eventual resting height of floor piles.
+  // Preserve debris and keep simulating it, but finish immediately at zero targets.
+  if(this.active.length===0){this.moving=false;return fallen;}
   if(this.moving){
    const supported=this.supported();
    const stable=this.active.every(p=>{

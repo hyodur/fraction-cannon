@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import {RoundedBoxGeometry} from "three/addons/geometries/RoundedBoxGeometry.js";
-import {BlockWorld,SHELF_Y,STEP,type Point} from "./world";
+import {BlockWorld,SHELF_Y,SHELF_THICKNESS,STEP} from "./world";
 export type SceneState={remaining:number[];moving:boolean};
-export type SceneEvents={state:(s:SceneState)=>void;select:(id:number)=>void;effect:(name:"impact"|"collapse")=>void;error:(message:string)=>void};
+export type SceneEvents={state:(s:SceneState)=>void;select:(id:number|null)=>void;effect:(name:"impact"|"collapse")=>void;error:(message:string)=>void};
 const MUZZLE=new THREE.Vector3(0,1.65,5);
 export class CannonScene{
  private renderer:THREE.WebGLRenderer;
@@ -43,7 +43,7 @@ export class CannonScene{
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshStandardMaterial({color:0xabb49e,roughness:1}));
   ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;this.scene.add(ground);
   const steel=new THREE.MeshStandardMaterial({color:0x60737d,metalness:.65,roughness:.43});
-  const shelf=new THREE.Mesh(new RoundedBoxGeometry(3.6,.20,1.2,2,.035),steel);shelf.position.y=SHELF_Y-.10;shelf.castShadow=true;shelf.receiveShadow=true;this.scene.add(shelf);
+  const shelf=new THREE.Mesh(new RoundedBoxGeometry(3.6,SHELF_THICKNESS,1.2,2,.035),steel);shelf.position.y=SHELF_Y-SHELF_THICKNESS/2;shelf.castShadow=true;shelf.receiveShadow=true;this.scene.add(shelf);
   for(const x of [-1.5,1.5]){
    const leg=new THREE.Mesh(new THREE.BoxGeometry(.13,2.1,.13),steel);leg.position.set(x,1.05,-.35);leg.castShadow=true;this.scene.add(leg);
    const foot=new THREE.Mesh(new THREE.BoxGeometry(.42,.08,.48),steel);foot.position.set(x,.04,-.35);this.scene.add(foot);
@@ -129,6 +129,9 @@ export class CannonScene{
   this.flight={id,end:this.hitPoint.clone(),elapsed:0};this.ball.visible=true;this.reticle.visible=false;this.emitState();return true;
  }
  private sync(){
+  if(this.selected!==null&&!this.simulation.active.some(p=>p.id===this.selected)){
+   this.selected=null;this.reticle.visible=false;this.highlight();this.events.select(null);
+  }
   for(const p of this.simulation.pieces){
    const mesh=this.meshes.get(p.id)!;mesh.position.copy(p.body.position);mesh.quaternion.copy(p.body.quaternion);
   }

@@ -16,7 +16,11 @@ export function Game(){
   try{
    const arena=new CannonScene(host.current,{
     state:s=>{setRemaining(s.remaining);setBusy(s.moving);busyRef.current=s.moving;if(!s.moving)setMessage(s.remaining.length?"다음 블록을 골라 작전을 이어가세요.":"모든 블록을 떨어뜨렸어요!");},
-    select:id=>{setTarget(id);setMessage(id+"번 블록을 골랐어요. 문제를 풀면 발사할 수 있어요.");},
+    select:id=>{
+     setTarget(id);
+     if(id===null){questionRef.current=null;setQuestion(null);setReady(false);setMessage("선택한 블록이 선반 아래로 떨어졌어요.");}
+     else setMessage(id+"번 블록을 골랐어요. 문제를 풀면 발사할 수 있어요.");
+    },
     effect:name=>{if(!mutedRef.current)playGameEffect(audio,name);},
     error:message=>{setError(message);setGraphics(false);}
    },()=>!questionRef.current&&!busyRef.current);
@@ -25,7 +29,7 @@ export function Game(){
   }catch{setError("이 브라우저에서 3D 화면을 시작하지 못했어요. 최신 크롬이나 엣지에서 다시 열어 주세요.");setGraphics(false);}
  },[round]);
  function openQuestion(){
-  if(target===null||busyRef.current||questionRef.current||!graphics)return;
+  if(target===null||!remaining.includes(target)||busyRef.current||questionRef.current||!graphics)return;
   const seed=crypto.getRandomValues(new Uint32Array(1))[0],q=makeQuestion(1,level(target),seed);
   questionRef.current=q;setQuestion(q);setReady(false);setNumerator("");setDenominator("");setHints(0);setMessage("시간 제한은 없어요. 차근차근 풀어 보세요.");
  }

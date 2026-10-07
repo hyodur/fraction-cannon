@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {Vec3} from "cannon-es";
-import {BlockWorld,STEP,SHELF_Y} from "../src/world.ts";
+import {BlockWorld,STEP,SHELF_Y,CLEAR_Y} from "../src/world.ts";
 import {makeQuestion,isCorrect} from "../../lib/questions.ts";
 const muzzle={x:0,y:1.65,z:5};
 function settle(w:BlockWorld){
@@ -19,7 +19,7 @@ settle(a);assert(spin&&depth,"Shot must move and rotate in depth");
 assert(a.pieces[8].cleared,"The top block should fall off the shelf");
 assert(a.active.length>0,"A top shot must leave another strategic choice");
 assert.equal(a.pieces.length,9,"Fallen blocks remain as physical debris");
-for(const p of a.pieces.filter(p=>p.cleared)){p.body.updateAABB();assert(p.body.aabb.upperBound.y<.65);}
+for(const p of a.pieces.filter(p=>p.cleared)){p.body.updateAABB();assert(p.body.aabb.upperBound.y<CLEAR_Y);}
 const b=new BlockWorld();settle(b);shoot(b,9);settle(b);
 assert.deepEqual(snapshot(a),snapshot(b),"Same input must produce the same result");
 // Actual front-face coordinates must track a rotated body, like pointer/number aiming.
@@ -30,6 +30,33 @@ const falling=new BlockWorld();settle(falling);
 falling.pieces[8].body.position.set(6,SHELF_Y+2,0);falling.pieces[8].body.velocity.setZero();falling.moving=true;
 for(let i=0;i<24;i++){falling.step();assert(falling.moving,"Airborne blocks must never count as resting");}
 settle(falling);assert(falling.pieces[8].cleared);
+// Regression: a floor pile can stand taller than 0.65 m and still be entirely
+// below the shelf. This used to leave the tall pillar and beam selectable.
+const pile=new BlockWorld();settle(pile);
+for(const p of pile.pieces){
+ p.body.position.y-=SHELF_Y;p.body.velocity.setZero();p.body.angularVelocity.setZero();
+ p.body.updateAABB();
+}
+assert(pile.pieces[1].body.aabb.upperBound.y>.65);
+assert(pile.pieces[2].body.aabb.upperBound.y>.65);
+pile.moving=true;
+const clearedPile=pile.step();
+assert.equal(clearedPile.length,9,"All blocks in the under-shelf pile must clear");
+assert.equal(pile.active.length,0,"No floor debris can remain targetable");
+assert.equal(pile.moving,false,"The last crossing must end the game immediately");
+assert.equal(pile.pieces.length,9,"Debris stays visible and physical");
+for(const p of pile.pieces)assert(!pile.hit(p.id,p.body.position,muzzle),"A cleared block cannot be shot");
+assert.deepEqual(pile.step(),[],"Crossings must not score twice");
+// A partly crossed or airborne block above the shelf is not yet cleared.
+const boundary=new BlockWorld();settle(boundary);const edge=boundary.pieces[8];
+edge.body.position.set(6,CLEAR_Y+.10,0);edge.body.velocity.setZero();edge.body.angularVelocity.setZero();edge.body.quaternion.set(0,0,0,1);boundary.moving=true;
+boundary.step();assert(!edge.cleared,"A block straddling the clearing plane is still in play");
+edge.body.position.set(6,CLEAR_Y-edge.height/2-.04,0);edge.body.velocity.setZero();
+assert.deepEqual(boundary.step(),[edge.id],"Clear before landing on the floor");
+settle(boundary);assert(!boundary.moving);
+assert(!boundary.hit(edge.id,edge.body.position,muzzle),"Cleared targets stay excluded after controls unlock");
+edge.body.position.set(6,SHELF_Y+1,0);boundary.step();
+assert(edge.cleared,"A bounce cannot restore a cleared target");
 // Floor debris can spin without blocking the next question. Physics continues
 // after unlocking, so this is not a timeout that freezes unsupported bodies.
 const debris=new BlockWorld();settle(debris);const d=debris.pieces[8];d.cleared=true;d.body.position.set(8,.25,0);debris.moving=true;
