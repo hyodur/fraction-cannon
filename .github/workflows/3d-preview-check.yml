@@ -6,6 +6,9 @@ on:
       - 'lib/questions.ts'
       - 'lib/audio.ts'
       - '.github/workflows/3d-preview-check.yml'
+concurrency:
+  group: 3d-preview-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -22,7 +25,10 @@ jobs:
           node-version: '22.18.0'
       - run: npm install --no-audit --no-fund
       - run: npm test
-      - run: npm run build
+      - run: npx tsc --noEmit
+        timeout-minutes: 2
+      - run: npx vite build
+        timeout-minutes: 2
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
       - uses: actions/upload-artifact@v4
