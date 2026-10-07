@@ -15,7 +15,7 @@ export function Game(){
   if(!host.current)return;
   try{
    const arena=new CannonScene(host.current,{
-    state:s=>{setRemaining(s.remaining);setBusy(s.moving);busyRef.current=s.moving;},
+    state:s=>{setRemaining(s.remaining);setBusy(s.moving);busyRef.current=s.moving;if(!s.moving)setMessage(s.remaining.length?"다음 블록을 골라 작전을 이어가세요.":"모든 블록을 떨어뜨렸어요!");},
     select:id=>{setTarget(id);setMessage(id+"번 블록을 골랐어요. 문제를 풀면 발사할 수 있어요.");},
     effect:name=>{if(!mutedRef.current)playGameEffect(audio,name);},
     error:message=>{setError(message);setGraphics(false);}

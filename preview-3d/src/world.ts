@@ -1,7 +1,9 @@
 import {Body,Box,ContactMaterial,GSSolver,Material,Vec3,World} from "cannon-es";
 export const SHELF_Y=2.2;
 export const STEP=1/120;
-export const IMPULSE=2.6;
+export const BALL_MASS=.65;
+export const BALL_SPEED=12;
+export function impactImpulse(mass:number){return 1.1*BALL_MASS*mass/(BALL_MASS+mass)*BALL_SPEED;}
 export type Point={x:number;y:number;z:number};
 export type Piece={id:number;width:number;height:number;depth:number;level:1|2|3;body:Body;cleared:boolean};
 export class BlockWorld{
@@ -43,7 +45,9 @@ export class BlockWorld{
   if(this.moving)return false;
   const piece=this.active.find(p=>p.id===id);if(!piece)return false;
   const impulse=new Vec3(point.x-muzzle.x,point.y-muzzle.y,point.z-muzzle.z);
-  impulse.normalize();impulse.scale(IMPULSE,impulse);
+  impulse.normalize();// Momentum transfer from the same cannonball for every target.
+  // Reduced mass prevents light blocks receiving the beam's full impulse.
+  impulse.scale(impactImpulse(piece.body.mass),impulse);
   const offset=new Vec3(point.x-piece.body.position.x,point.y-piece.body.position.y,point.z-piece.body.position.z);
   piece.body.applyImpulse(impulse,offset);this.moving=true;this.resetQuiet();
   return true;
