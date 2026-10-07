@@ -3,24 +3,26 @@ export const SHELF_Y=2.2;
 export const STEP=1/120;
 export const BALL_MASS=.65;
 export const BALL_SPEED=12;
-export function impactImpulse(mass:number){return 1.1*BALL_MASS*mass/(BALL_MASS+mass)*BALL_SPEED;}
+export function impactImpulse(mass:number,speed=BALL_SPEED){return 1.1*BALL_MASS*mass/(BALL_MASS+mass)*speed;}
 export type Point={x:number;y:number;z:number};
 export type Piece={id:number;width:number;height:number;depth:number;level:1|2|3;body:Body;cleared:boolean};
 export class BlockWorld{
  world:World;
  pieces:Piece[]=[];
  moving=true;
+ private ballSpeed=BALL_SPEED;
  private time=0;
  private quietSince=0;
  private anchors=new Map<number,{position:Vec3;quaternion:Body["quaternion"]}>();
  private lastSupported=new Map<Body,number>();
  private statics:Body[]=[];
- constructor(){
+ constructor(options:{woodFriction?:number;shelfFriction?:number;ballSpeed?:number}={}){
+  this.ballSpeed=options.ballSpeed??BALL_SPEED;
   this.world=new World({gravity:new Vec3(0,-9.82,0),allowSleep:false});
   (this.world.solver as GSSolver).iterations=20;
   const wood=new Material("wood"),support=new Material("support");
-  this.world.addContactMaterial(new ContactMaterial(wood,wood,{friction:.28,restitution:.035}));
-  this.world.addContactMaterial(new ContactMaterial(wood,support,{friction:.32,restitution:.025}));
+  this.world.addContactMaterial(new ContactMaterial(wood,wood,{friction:options.woodFriction??.28,restitution:.035}));
+  this.world.addContactMaterial(new ContactMaterial(wood,support,{friction:options.shelfFriction??.32,restitution:.025}));
   const fixed=(x:number,y:number,z:number,w:number,h:number,d:number)=>{
    const body=new Body({mass:0,material:support,shape:new Box(new Vec3(w/2,h/2,d/2)),position:new Vec3(x,y,z)});
    this.statics.push(body);this.world.addBody(body);
@@ -47,7 +49,7 @@ export class BlockWorld{
   const impulse=new Vec3(point.x-muzzle.x,point.y-muzzle.y,point.z-muzzle.z);
   impulse.normalize();// Momentum transfer from the same cannonball for every target.
   // Reduced mass prevents light blocks receiving the beam's full impulse.
-  impulse.scale(impactImpulse(piece.body.mass),impulse);
+  impulse.scale(impactImpulse(piece.body.mass,this.ballSpeed),impulse);
   const offset=new Vec3(point.x-piece.body.position.x,point.y-piece.body.position.y,point.z-piece.body.position.z);
   piece.body.applyImpulse(impulse,offset);this.moving=true;this.resetQuiet();
   return true;
