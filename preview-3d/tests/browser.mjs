@@ -62,7 +62,7 @@ try{
  async function finishCurrent(){
   let attempts=0;
   while(Number(await page.getByTestId("remaining").innerText())>0&&attempts<45){
-   const remaining=await ids(),id=[3,7,1,2,5,6,14,15,13].find(id=>remaining.includes(id))??remaining[0];
+   const remaining=await ids(),id=[3,7,1,2,5,6,11,13,9].find(id=>remaining.includes(id))??remaining[0];
    await fireAt(id);attempts++;
   }
   assert.equal(await page.getByTestId("remaining").innerText(),"0","Every structure must be clearable");
@@ -117,7 +117,7 @@ try{
   let extras=0;
   // Preserve all four answer formats: stage 7's cap is easy classification,
   // its middle block is improper -> mixed, and its bridge is mixed -> improper.
-  if(stageId===7){await fireAt(11);await fireAt(4);extras=2;}
+  if(stageId===7){await fireAt(14);await fireAt(4);extras=2;}
   campaign.push(extras+await finishCurrent());
  }
  await page.getByRole("heading",{name:"12단계 모두 성공!"}).waitFor();

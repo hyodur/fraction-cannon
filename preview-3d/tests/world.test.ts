@@ -87,7 +87,7 @@ for(const stage of STAGES){
  let shots=0,maxWait=0;
  // A visible, repeatable strategy: finish each bridge, then its surviving
  // supports, then each small side/center stack from its lower block.
- for(const id of [3,7,1,2,5,6,14,15,13,...specs.map(p=>p.id)]){
+ for(const id of [3,7,1,2,5,6,11,13,9,...specs.map(p=>p.id)]){
   for(let attempt=0;attempt<6&&w.active.some(p=>p.id===id);attempt++){
    assert(shoot(w,id));shots++;maxWait=Math.max(maxWait,settle(w));
   }
@@ -118,6 +118,12 @@ for(const stage of [1,3,6,9,12])for(const id of [3,7])for(const x of [-.35,0,.35
  isolation.push({stage,id,x,y,firstRemoved,attempts,remaining:w.active.length});
 }
 console.log("ISOLATED_TOWERS:"+JSON.stringify({cases:isolation.length,firstMin:Math.min(...isolation.map(x=>x.firstRemoved)),firstMax:Math.max(...isolation.map(x=>x.firstRemoved)),errors:errors.slice(0,20)}));
+for(let i=1;i<stageRuns.length;i++){
+ if(stageRuns[i].shots<stageRuns[i-1].shots)errors.push("Reference strategy must not get shorter at stage "+stageRuns[i].stage);
+}
+for(const id of [2,4,6]){
+ if(stageRuns[id-1].shots<=stageRuns[id-2].shots)errors.push("New early side/center target must add a question at stage "+id);
+}
 const early=stageRuns.slice(0,3).reduce((n,s)=>n+s.shots,0)/3,late=stageRuns.slice(9).reduce((n,s)=>n+s.shots,0)/3;
 if(!(late>=early+3))errors.push("Later stages should require meaningfully more solved shots: "+JSON.stringify({early,late}));
 if(!(stageRuns[11].shots>stageRuns[0].shots))errors.push("Final stage must involve more questions than the first stage");

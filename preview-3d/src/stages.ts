@@ -7,7 +7,7 @@ export const MATERIALS:BlockMaterial[]=[
  {id:"iron",name:"철",resistance:1.06,color:0x8399ab,roughness:.48,metalness:.65}
 ];
 const counts=[8,9,10,11,12,13,14,15,16,17,18,20];
-const layouts=["두 개의 작은 탑","왼쪽 탑 넓히기","양쪽 탑 넓히기","왼쪽에 한 층 더","양쪽에 한 층 더","가운데 작은 조각","왼쪽 곁다리 탑","양옆 곁다리 탑","왼쪽 곁다리 한 층 더","양옆 곁다리 한 층 더","가운데 작은 탑","마지막 징검 조각"];
+const layouts=["두 개의 작은 탑","가운데 작은 조각","왼쪽 탑 넓히기","왼쪽 곁다리 탑","양쪽 탑 넓히기","양옆 곁다리 탑","왼쪽에 한 층 더","양쪽에 한 층 더","왼쪽 곁다리 한 층 더","양옆 곁다리 한 층 더","가운데 작은 탑","마지막 징검 조각"];
 const titles=["첫 번째 작전","하나 더 쌓아 볼까","나무 탑 탐험","벽돌과 첫 만남","차곡차곡 벽돌","벽돌 작전 완성","돌 블록 탐험","분수로 여는 길","돌 탑의 비밀","철 블록과 첫 만남","마지막 준비","분수 탐험대 완주"];
 const topics=["전체와 부분","분수만큼의 양","여러 가지 분수","분수의 크기 비교"];
 export const STAGES=counts.map((count,i)=>({id:i+1,count,layout:layouts[i],title:titles[i],topic:topics[Math.floor(i/3)],material:MATERIALS[Math.floor(i/3)],step:i%3}));
@@ -21,19 +21,19 @@ export function stageBlocks(stageId:number):BlockSpec[]{
   blocks.push({id,x,y,width,height,depth,level,group,role});
  };
  // The two bridges never share a beam or pillar. A physical gap separates them.
- for(const [base,cx,group,widenAt,capAt] of [[0,-.9,"left",2,4],[4,.9,"right",3,5]] as const){
+ for(const [base,cx,group,widenAt,capAt] of [[0,-.9,"left",3,7],[4,.9,"right",5,8]] as const){
   add(base+1,cx-.31,.30,.22,.60,3,group,"support");
   add(base+2,cx+.31,.30,.22,.60,3,group,"support");
   add(base+3,cx,.72,1,.24,3,group,"beam");
   add(base+4,cx-(stageId>=widenAt?.26:0),1,.42,.32,stageId>=capAt?2:1,group);
  }
- if(stageId>=2)add(9,-.64,1,.42,.32,stageId>=4?2:1,"left");
- if(stageId>=3)add(10,1.16,1,.42,.32,stageId>=5?2:1,"right");
- if(stageId>=4)add(11,-.9,1.32,.42,.32,1,"left");
- if(stageId>=5)add(12,.9,1.32,.42,.32,1,"right");
- if(stageId>=6)add(13,0,.16,.32,.32,stageId>=11?2:1,"center");
- if(stageId>=7)add(14,-2.3,.16,.32,.32,stageId>=9?2:1,"leftSide");
- if(stageId>=8)add(15,2.3,.16,.32,.32,stageId>=10?2:1,"rightSide");
+ if(stageId>=2)add(9,0,.16,.32,.32,stageId>=11?2:1,"center");
+ if(stageId>=3)add(10,-.64,1,.42,.32,stageId>=7?2:1,"left");
+ if(stageId>=4)add(11,-2.3,.16,.32,.32,stageId>=9?2:1,"leftSide");
+ if(stageId>=5)add(12,1.16,1,.42,.32,stageId>=8?2:1,"right");
+ if(stageId>=6)add(13,2.3,.16,.32,.32,stageId>=10?2:1,"rightSide");
+ if(stageId>=7)add(14,-.9,1.32,.42,.32,1,"left");
+ if(stageId>=8)add(15,.9,1.32,.42,.32,1,"right");
  if(stageId>=9)add(16,-2.3,.48,.32,.32,1,"leftSide");
  if(stageId>=10)add(17,2.3,.48,.32,.32,1,"rightSide");
  if(stageId>=11)add(18,0,.48,.32,.32,1,"center");
