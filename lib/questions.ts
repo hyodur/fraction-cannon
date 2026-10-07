@@ -31,8 +31,8 @@ function fraction(s:string){const m=/^(\d{1,3})\/(\d{1,3})$/.exec(s);return m&&+
 export function isCorrect(q:Question,input:unknown):boolean{
  if(typeof input!=="string"||input.length>20)return false;
  const s=input.trim();
- if(q.kind==="fraction"){const a=fraction(s),b=fraction(q.answer);return !!a&&!!b&&a[0]*b[1]===b[0]*a[1]}
- if(q.kind==="mixed"){const a=/^(\d{1,2}) (\d{1,3}\/\d{1,3})$/.exec(s),b=q.answer.split(" ");if(!a)return false;const f=fraction(a[2]),g=fraction(b[1]);return !!f&&!!g&&f[0]>0&&f[0]<f[1]&&+a[1]===+b[0]&&f[0]*g[1]===g[0]*f[1]}
+ if(q.kind==="fraction"){const a=fraction(s),b=fraction(q.answer);return !!a&&!!b&&a[0]===b[0]&&a[1]===b[1]}
+ if(q.kind==="mixed"){const a=/^(\d{1,2}) (\d{1,3}\/\d{1,3})$/.exec(s),b=q.answer.split(" ");if(!a)return false;const f=fraction(a[2]),g=fraction(b[1]);return !!f&&!!g&&f[0]>0&&f[0]<f[1]&&+a[1]===+b[0]&&f[0]===g[0]&&f[1]===g[1]}
  if(q.kind==="number")return /^\d{1,3}$/.test(s)&&Number(s)===Number(q.answer);
  return s===q.answer;
 }

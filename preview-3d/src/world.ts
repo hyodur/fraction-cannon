@@ -7,6 +7,9 @@ export const CLEAR_Y=SHELF_Y-SHELF_THICKNESS-.02;
 export const STEP=1/120;
 export const BALL_MASS=.65;
 export const BALL_SPEED=8;
+// Fixed density for every block of a material; increased inertia prevents a
+// fully loaded beam from collapsing the tower with its first central hit.
+export const BLOCK_DENSITY=4.05;
 export function impactImpulse(mass:number,speed=BALL_SPEED){return 1.1*BALL_MASS*mass/(BALL_MASS+mass)*speed;}
 export type Point={x:number;y:number;z:number};
 export type Piece={id:number;width:number;height:number;depth:number;level:1|2|3;body:Body;cleared:boolean};
@@ -36,7 +39,7 @@ export class BlockWorld{
   fixed(0,SHELF_Y-SHELF_THICKNESS/2,0,3.6,SHELF_THICKNESS,1.20);
   fixed(-1.5,1.05,-.35,.13,2.10,.13);fixed(1.5,1.05,-.35,.13,2.10,.13);
   const add=(x:number,y:number,w:number,h:number,level:1|2|3,depth=.48)=>{
-   const body=new Body({mass:w*h*depth*3*stage.material.resistance,material:wood,shape:new Box(new Vec3(w/2,h/2,depth/2)),position:new Vec3(x,SHELF_Y+y,0),linearDamping:.12,angularDamping:.18});
+   const body=new Body({mass:w*h*depth*BLOCK_DENSITY*stage.material.resistance,material:wood,shape:new Box(new Vec3(w/2,h/2,depth/2)),position:new Vec3(x,SHELF_Y+y,0),linearDamping:.12,angularDamping:.18});
    const piece:Piece={id:this.pieces.length+1,width:w,height:h,depth,level,body,cleared:false};
    this.pieces.push(piece);this.world.addBody(body);
   };

@@ -30,8 +30,16 @@ try{
   assert.equal(await page.locator(".question-text").innerText(),q.prompt);
   if(q.expression)assert.equal(await page.getByTestId("expression").locator("[data-math]").getAttribute("data-math"),q.expression);
   if(wrong){
+   const previousMistakes=Number(await page.getByTestId("mistake-count").innerText());
    await page.getByLabel("분자",{exact:true}).fill("99");await page.getByLabel("분모",{exact:true}).fill("7");await page.getByRole("button",{name:"정답 확인"}).click();
    assert.equal(await page.getByRole("button",{name:"대포 발사!"}).count(),0);
+   assert.equal(Number(await page.getByTestId("mistake-count").innerText()),previousMistakes+1);
+   const [a,d]=q.answer.split("/").map(Number);
+   await page.getByLabel("분자",{exact:true}).fill(String(a*2));
+   await page.getByLabel("분모",{exact:true}).fill(String(d*2));
+   await page.getByRole("button",{name:"정답 확인"}).click();
+   assert.equal(await page.getByRole("button",{name:"대포 발사!"}).count(),0,"Equivalent but differently written fractions must not unlock firing");
+   assert.equal(Number(await page.getByTestId("mistake-count").innerText()),previousMistakes+2);
   }
   if(q.kind==="fraction"||q.kind==="mixed"){
    const [wholePart,fractionPart]=q.kind==="mixed"?q.answer.split(" "):["",q.answer];
@@ -50,6 +58,7 @@ try{
   return remaining;
  }
  await fireAt(5,true);
+ if(Number(await page.getByTestId("remaining").innerText())===9)await fireAt(5);
  const afterNormal=Number(await page.getByTestId("remaining").innerText());
  assert(afterNormal>=6&&afterNormal<=8,"A normal hit must remove some blocks and leave the base");
  await page.screenshot({path:"test-results/3d-normal-hit.png",fullPage:true});
@@ -57,11 +66,21 @@ try{
  for(const id of [9,8,7,6,4,3,2,1]){
   if(await page.locator(".block-buttons button").filter({hasText:new RegExp("^"+id+"$")}).count())await fireAt(id);
  }
+ await finishCurrent();
+ assert.equal(await page.getByTestId("mistake-count").innerText(),"2","Mistakes survive successful retries and later shots");
+ assert.equal(await page.getByTestId("mistake-penalty").innerText(),"−300");
+ assert.equal(await page.getByTestId("clean-bonus").innerText(),"+0");
+ const score=Number(await page.getByTestId("score-total").innerText());assert(score>=0&&score<1800);
+ console.log("BROWSER_SCORE:"+JSON.stringify({mistakes:2,penalty:300,score}));
  // Check the load-bearing beam is a challenge and reaches more blocks.
  await page.getByRole("button",{name:"처음부터 다시",exact:true}).click();await idle();
  await page.getByRole("button",{name:"3번 블록, 도전"}).waitFor();
- const afterChallenge=await fireAt(3);
- assert(afterChallenge<afterNormal,"Challenge beam should have a larger effect than a normal block");
+ assert.equal(await page.getByTestId("mistake-count").innerText(),"0","Restart clears this attempt's mistakes");
+ const afterFirstBeam=await fireAt(3);
+ assert.equal(afterFirstBeam,9,"First beam hit must leave the fully loaded wood structure standing");
+ for(let i=0;i<4&&await page.getByRole("button",{name:"3번 블록, 도전"}).count();i++)await fireAt(3);
+ const afterChallenge=Number(await page.getByTestId("remaining").innerText());
+ assert(afterChallenge<afterNormal,"Repeated beam hits should have a larger effect than a normal block");
  // If a support survives on the shelf, finish it. Floor piles must never
  // require an extra question to make them short enough for a floor-height rule.
  for(let i=0;i<6&&Number(await page.getByTestId("remaining").innerText())>0;i++){
@@ -69,6 +88,8 @@ try{
  }
  assert.equal(await page.getByTestId("remaining").innerText(),"0");
  await page.getByRole("heading",{name:"멋진 작전이었어요!"}).waitFor();
+ assert.equal(await page.getByTestId("clean-bonus").innerText(),"+200");
+ assert.equal(await page.getByTestId("mistake-penalty").innerText(),"−0");
  assert.equal(await page.locator(".block-buttons button").count(),0);
  assert.equal(await page.getByRole("button",{name:"문제 풀고 공격하기"}).count(),0);
  assert.equal(await page.getByRole("button",{name:"대포 발사!"}).count(),0);

@@ -2,9 +2,9 @@ export type BlockLevel=1|2|3;
 export type BlockMaterial={id:string;name:string;resistance:number;color:number;roughness:number;metalness:number};
 export const MATERIALS:BlockMaterial[]=[
  {id:"wood",name:"나무",resistance:1,color:0xd3a15f,roughness:.79,metalness:0},
- {id:"brick",name:"벽돌",resistance:1.08,color:0xb86d51,roughness:.92,metalness:0},
- {id:"stone",name:"돌",resistance:1.16,color:0x98a5a3,roughness:.88,metalness:.03},
- {id:"iron",name:"철",resistance:1.24,color:0x8399ab,roughness:.48,metalness:.65}
+ {id:"brick",name:"벽돌",resistance:1.04,color:0xb86d51,roughness:.92,metalness:0},
+ {id:"stone",name:"돌",resistance:1.08,color:0x98a5a3,roughness:.88,metalness:.03},
+ {id:"iron",name:"철",resistance:1.12,color:0x8399ab,roughness:.48,metalness:.65}
 ];
 const counts=[9,10,11,10,11,12,11,12,13,12,13,14];
 const titles=["첫 번째 작전","하나 더 쌓아 볼까","나무 탑 탐험","벽돌과 첫 만남","차곡차곡 벽돌","벽돌 작전 완성","돌 블록 탐험","분수로 여는 길","돌 탑의 비밀","철 블록과 첫 만남","마지막 준비","분수 탐험대 완주"];
