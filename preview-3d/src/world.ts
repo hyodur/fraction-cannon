@@ -60,7 +60,13 @@ export class BlockWorld{
  frontPoint(id:number,x=0,y=0):Point{
   const p=this.active.find(p=>p.id===id);
   if(!p)throw new Error("Unknown active block: "+id);
-  return p.body.pointToWorldFrame(new Vec3(x,y,p.depth/2));
+  // Choose the face facing the cannon even after the block has tipped over.
+  const localCannon=p.body.pointToLocalFrame(new Vec3(0,1.65,5));
+  const ax=Math.abs(localCannon.x),ay=Math.abs(localCannon.y),az=Math.abs(localCannon.z);
+  const point=az>=ax&&az>=ay?new Vec3(x,y,Math.sign(localCannon.z)*p.depth/2)
+   :ay>=ax?new Vec3(x,Math.sign(localCannon.y)*p.height/2,y)
+   :new Vec3(Math.sign(localCannon.x)*p.width/2,y,x);
+  return p.body.pointToWorldFrame(point);
  }
  private resetQuiet(){
   this.quietSince=this.time;

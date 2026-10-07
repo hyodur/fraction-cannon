@@ -115,6 +115,7 @@ for(const stage of STAGES){
    shoot(w,id);maxWait=Math.max(maxWait,settle(w));shots++;
   }
  }
+ console.log("STAGE_RESULT:"+JSON.stringify({stage:stage.id,shots,maxWait,remaining:w.active.map(p=>({id:p.id,pos:p.body.position.toArray(),q:p.body.quaternion.toArray()}))}));
  assert.equal(w.active.length,0,"Stage "+stage.id+" must be clearable without attacking debris");
  assert(shots<=stage.count*2,"Stage "+stage.id+" needs too many questions");
  stageRuns.push({stage:stage.id,material:stage.material.id,count:stage.count,shots,maxWait});
