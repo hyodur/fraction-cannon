@@ -27,7 +27,7 @@ try{
    await page.getByLabel("분자",{exact:true}).fill("99");await page.getByLabel("분모",{exact:true}).fill("7");await page.getByRole("button",{name:"정답 확인"}).click();
    assert.equal(await page.getByRole("button",{name:"대포 발사!"}).count(),0);
   }
-  const denominator=total/size,numerator=id<=2?denominator-part:part/size;
+  const denominator=total/size,numerator=prompt.includes("넣지 않은")?denominator-part:part/size;
   await page.getByLabel("분자",{exact:true}).fill(String(numerator));await page.getByLabel("분모",{exact:true}).fill(String(denominator));await page.getByRole("button",{name:"정답 확인"}).click();
   await page.getByRole("button",{name:"대포 발사!"}).click();
   await page.getByText("블록이 멈출 때까지 기다려 주세요.",{exact:true}).waitFor();
@@ -38,10 +38,18 @@ try{
   return remaining;
  }
  await fireAt(5,true);
- assert(Number(await page.getByTestId("remaining").innerText())<9,"Center shot must do more than shake");
+ const afterNormal=Number(await page.getByTestId("remaining").innerText());
+ assert(afterNormal>=6&&afterNormal<=8,"A normal hit must remove some blocks and leave the base");
+ await page.screenshot({path:"test-results/3d-normal-hit.png",fullPage:true});
+ console.log("PREVIEW_NORMAL_IMAGE:"+(await page.locator(".arena").screenshot({type:"jpeg",quality:65})).toString("base64"));
  for(const id of [9,8,7,6,4,3,2,1]){
   if(await page.locator(".block-buttons button").filter({hasText:new RegExp("^"+id+"$")}).count())await fireAt(id);
  }
+ // Check the load-bearing beam is a challenge and reaches more blocks.
+ await page.getByRole("button",{name:"처음부터 다시",exact:true}).click();await idle();
+ await page.getByRole("button",{name:"3번 블록, 도전"}).waitFor();
+ const afterChallenge=await fireAt(3);
+ assert(afterChallenge<afterNormal,"Challenge beam should have a larger effect than a normal block");
  // A clean top-first shot must also unlock the next selection.
  await page.getByRole("button",{name:"처음부터 다시",exact:true}).click();await idle();
  await fireAt(9);

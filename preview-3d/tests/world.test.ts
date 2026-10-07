@@ -38,14 +38,23 @@ assert(!debris.moving,"Floor debris must not lock controls");
 d.body.position.set(8,3,0);d.body.velocity.setZero();
 for(let i=0;i<60;i++)debris.step();
 assert(d.body.position.y<2,"Gravity must continue after controls unlock");
+// Balance must reward a normal hit without clearing the whole structure.
+// Cover aim offsets and time spent reading a question, not only one exact shot.
 const targets=[];
-for(const id of [3,4,5,6]){
- const w=new BlockWorld();settle(w);let shots=0,maxWait=0;
- while(w.active.some(p=>p.id===id)&&shots<2){assert(shoot(w,id));maxWait=Math.max(maxWait,settle(w));shots++;}
- targets.push({id,shots,maxWait,remaining:w.active.length,targetCleared:w.pieces[id-1].cleared});
- console.log("MIDDLE_TARGET:"+JSON.stringify(targets.at(-1)));
- assert(w.pieces[id-1].cleared,"Middle block "+id+" should leave the shelf within two center hits");
+for(const id of [4,5,6])for(const x of [-.08,0,.08])for(const y of [-.08,0,.08])for(const idle of [0,3]){
+ const w=new BlockWorld();settle(w);for(let i=0;i<idle*120;i++)w.step();
+ assert.equal(w.pieces[id-1].level,2);
+ assert(shoot(w,id,x,y));const seconds=settle(w);
+ for(let i=0;i<360;i++)w.step();
+ const removed=9-w.active.length;
+ targets.push({id,x,y,idle,removed,seconds});
+ assert(removed>=1&&removed<=3,"Normal hit should remove 1–3 blocks: "+JSON.stringify(targets.at(-1)));
+ assert(w.pieces.slice(0,3).every(p=>!p.cleared),"Normal hit must preserve the base");
 }
+const bridge=new BlockWorld();settle(bridge);
+assert.equal(bridge.pieces[2].level,3,"Load-bearing beam requires a challenge question");
+assert(shoot(bridge,3));settle(bridge);
+assert(9-bridge.active.length>=5,"A challenge beam hit must have greater reach");
 // User report: repeated middle hits, then top hit. Include off-center aims and
 // realistic idle time spent answering the next question.
 const sequences=[];
@@ -61,4 +70,4 @@ for(const offset of [-.08,0,.08]){
  sequences.push({offset,shots,maxWait});
 }
 for(let seed=1;seed<=100;seed++)for(const level of [1,2,3] as const){const q=makeQuestion(1,level,seed);assert.equal(q.kind,"fraction");assert(isCorrect(q,q.answer));assert(!isCorrect(q,"999/0"));assert(!q.prompt.includes("없음"));}
-console.log(JSON.stringify({passed:true,targets,sequences,step:STEP,questions:300}));
+console.log(JSON.stringify({passed:true,balanceCases:targets.length,normalMin:Math.min(...targets.map(t=>t.removed)),normalMax:Math.max(...targets.map(t=>t.removed)),challengeRemoved:9-bridge.active.length,sequences,step:STEP,questions:300}));

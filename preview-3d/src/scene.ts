@@ -50,7 +50,7 @@ export class CannonScene{
   }
   const woodTexture=this.woodTexture();
   for(const piece of this.simulation.pieces){
-   const material=new THREE.MeshStandardMaterial({color:piece.id<=2?0xb67c40:0xd3a15f,map:woodTexture,bumpMap:woodTexture,bumpScale:.009,roughness:.79,metalness:0});
+   const material=new THREE.MeshStandardMaterial({color:piece.level===3?0xb67c40:0xd3a15f,map:woodTexture,bumpMap:woodTexture,bumpScale:.009,roughness:.79,metalness:0});
    const mesh=new THREE.Mesh(new RoundedBoxGeometry(piece.width-.004,piece.height-.004,piece.depth-.004,3,.018),material);
    mesh.userData.blockId=piece.id;mesh.castShadow=true;mesh.receiveShadow=true;
    const label=this.numberLabel(piece.id);label.position.set(0,0,piece.depth/2+.005);mesh.add(label);

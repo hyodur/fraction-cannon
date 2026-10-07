@@ -2,7 +2,7 @@ import {Body,Box,ContactMaterial,GSSolver,Material,Vec3,World} from "cannon-es";
 export const SHELF_Y=2.2;
 export const STEP=1/120;
 export const BALL_MASS=.65;
-export const BALL_SPEED=12;
+export const BALL_SPEED=8;
 export function impactImpulse(mass:number,speed=BALL_SPEED){return 1.1*BALL_MASS*mass/(BALL_MASS+mass)*speed;}
 export type Point={x:number;y:number;z:number};
 export type Piece={id:number;width:number;height:number;depth:number;level:1|2|3;body:Body;cleared:boolean};
@@ -21,8 +21,8 @@ export class BlockWorld{
   this.world=new World({gravity:new Vec3(0,-9.82,0),allowSleep:false});
   (this.world.solver as GSSolver).iterations=20;
   const wood=new Material("wood"),support=new Material("support");
-  this.world.addContactMaterial(new ContactMaterial(wood,wood,{friction:options.woodFriction??.28,restitution:.035}));
-  this.world.addContactMaterial(new ContactMaterial(wood,support,{friction:options.shelfFriction??.32,restitution:.025}));
+  this.world.addContactMaterial(new ContactMaterial(wood,wood,{friction:options.woodFriction??.08,restitution:.035}));
+  this.world.addContactMaterial(new ContactMaterial(wood,support,{friction:options.shelfFriction??.25,restitution:.025}));
   const fixed=(x:number,y:number,z:number,w:number,h:number,d:number)=>{
    const body=new Body({mass:0,material:support,shape:new Box(new Vec3(w/2,h/2,d/2)),position:new Vec3(x,y,z)});
    this.statics.push(body);this.world.addBody(body);
@@ -36,9 +36,9 @@ export class BlockWorld{
    this.pieces.push(piece);this.world.addBody(body);
   };
   add(-.68,.36,.28,.72,3,options.supportDepth??.48);add(.68,.36,.28,.72,3,options.supportDepth??.48);
-  add(0,.90,2.10,.36,2);
+  add(0,.90,2.10,.36,3);
   for(const x of [-.60,0,.60])add(x,1.26,.56,.36,2);
-  if(options.columns){for(const x of [-.60,0,.60])add(x,1.62,.56,.36,1);}
+  if(options.columns??true){for(const x of [-.60,0,.60])add(x,1.62,.56,.36,1);}
   else{for(const x of [-.30,.30])add(x,1.62,.56,.36,1);add(0,1.98,.56,.36,1);}
   for(let i=0;i<180;i++)this.step();
  }
