@@ -1,0 +1,35 @@
+name: 3D preview checks
+on:
+  pull_request:
+    paths:
+      - 'preview-3d/**'
+      - 'lib/questions.ts'
+      - 'lib/audio.ts'
+      - '.github/workflows/3d-preview-check.yml'
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: preview-3d
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fraction-cannon-3d-preview
+          path: |
+            preview-3d/dist
+            preview-3d/test-results
+            preview-3d/package-lock.json
