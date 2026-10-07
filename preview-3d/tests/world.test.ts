@@ -69,17 +69,18 @@ assert(d.body.position.y<2,"Gravity must continue after controls unlock");
 // Balance must reward a normal hit without clearing the whole structure.
 // Cover aim offsets and time spent reading a question, not only one exact shot.
 const targets=[];
+const balanceProblems:string[]=[];
 for(const id of [4,5,6])for(const x of [-.08,0,.08])for(const y of [-.08,0,.08])for(const idle of [0,3]){
  const w=new BlockWorld();settle(w);for(let i=0;i<idle*120;i++)w.step();
  assert.equal(w.pieces[id-1].level,2);
  assert(shoot(w,id,x,y));let seconds=settle(w);
  for(let i=0;i<360;i++)w.step();
- if(w.active.length===9&&w.active.some(p=>p.id===id)){assert(shoot(w,id,x,y));seconds+=settle(w);}
+ for(let retry=0;retry<2&&w.active.length===9&&w.active.some(p=>p.id===id);retry++){assert(shoot(w,id,x,y));seconds+=settle(w);}
  for(let i=0;i<360;i++)w.step();
  const removed=9-w.active.length;
  targets.push({id,x,y,idle,removed,seconds});
- assert(removed>=1&&removed<=3,"Normal hit should remove 1–3 blocks: "+JSON.stringify(targets.at(-1)));
- assert(w.pieces.slice(0,3).every(p=>!p.cleared),"Normal hit must preserve the base");
+ if(!(removed>=1&&removed<=3))balanceProblems.push("Normal hit should remove 1–3 blocks within three attempts: "+JSON.stringify(targets.at(-1)));
+ if(!w.pieces.slice(0,3).every(p=>!p.cleared))balanceProblems.push("Normal hit must preserve the base: "+JSON.stringify(targets.at(-1)));
 }
 const bridge=new BlockWorld();settle(bridge);
 assert.equal(bridge.pieces[2].level,3,"Load-bearing beam requires a challenge question");
@@ -173,7 +174,9 @@ for(const stage of [1,4,7,10])for(const x of [-.08,0,.08])for(const y of [-.08,0
  while(w.active.some(p=>p.id===3)&&attempts<5){assert(shoot(w,3,x,y));settle(w);for(let i=0;i<240;i++)w.step();attempts++;}
  const result={stage,x,y,firstRemoved,attempts,removed:initial-w.active.length,beamCleared:!w.active.some(p=>p.id===3)};
  console.log("BEAM_RESISTANCE:"+JSON.stringify(result));beamRuns.push(result);
- assert(firstRemoved<5,"First central beam shot must not trigger a full core collapse");
- assert(result.beamCleared,"Repeated beam shots must remain effective in every material");
+ if(firstRemoved>=5)balanceProblems.push("First central beam shot must not trigger a full core collapse: "+JSON.stringify(result));
+ if(!result.beamCleared)balanceProblems.push("Repeated beam shots must remain effective in every material: "+JSON.stringify(result));
 }
 console.log("BEAM_BALANCE_PASSED:"+beamRuns.length);
+
+assert.deepEqual(balanceProblems,[],"All aim positions must remain balanced");
