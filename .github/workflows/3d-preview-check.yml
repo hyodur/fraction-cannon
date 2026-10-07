@@ -1,0 +1,52 @@
+name: 3D preview checks
+on:
+  pull_request:
+    paths:
+      - 'preview-3d/**'
+      - 'lib/questions.ts'
+      - 'lib/audio.ts'
+      - '.github/workflows/3d-preview-check.yml'
+concurrency:
+  group: 3d-preview-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: preview-3d
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: npx tsc --noEmit
+        timeout-minutes: 2
+      - run: npx vite build
+        timeout-minutes: 6
+      - name: Prepare browser
+        timeout-minutes: 3
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            echo "CHROMIUM_EXECUTABLE=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium >/dev/null 2>&1; then
+            echo "CHROMIUM_EXECUTABLE=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fraction-cannon-3d-preview
+          path: |
+            preview-3d/dist
+            preview-3d/test-results
+            preview-3d/package-lock.json
+            preview-3d/serve-preview.mjs
+            preview-3d/start-3d.cmd

@@ -1,0 +1,17 @@
+name: 3D balance calibration
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  calibration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - run: npm install --no-audit --no-fund
+        working-directory: preview-3d
+      - run: node --experimental-strip-types tools/3d-balance.ts
