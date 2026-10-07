@@ -1,3 +1,4 @@
+import {getStage,stageBlocks} from "./stages.ts";
 import {Body,Box,ContactMaterial,GSSolver,Material,Vec3,World} from "cannon-es";
 export const SHELF_Y=2.2;
 export const SHELF_THICKNESS=.20;
@@ -19,8 +20,9 @@ export class BlockWorld{
  private anchors=new Map<number,{position:Vec3;quaternion:Body["quaternion"]}>();
  private lastSupported=new Map<Body,number>();
  private statics:Body[]=[];
- constructor(options:{woodFriction?:number;shelfFriction?:number;ballSpeed?:number;columns?:boolean;supportDepth?:number}={}){
+ constructor(options:{woodFriction?:number;shelfFriction?:number;ballSpeed?:number;columns?:boolean;supportDepth?:number;stage?:number}={}){
   this.ballSpeed=options.ballSpeed??BALL_SPEED;
+  const stage=getStage(options.stage??1);
   this.world=new World({gravity:new Vec3(0,-9.82,0),allowSleep:false});
   (this.world.solver as GSSolver).iterations=20;
   const wood=new Material("wood"),support=new Material("support");
@@ -34,15 +36,13 @@ export class BlockWorld{
   fixed(0,SHELF_Y-SHELF_THICKNESS/2,0,3.6,SHELF_THICKNESS,1.20);
   fixed(-1.5,1.05,-.35,.13,2.10,.13);fixed(1.5,1.05,-.35,.13,2.10,.13);
   const add=(x:number,y:number,w:number,h:number,level:1|2|3,depth=.48)=>{
-   const body=new Body({mass:w*h*depth*3,material:wood,shape:new Box(new Vec3(w/2,h/2,depth/2)),position:new Vec3(x,SHELF_Y+y,0),linearDamping:.12,angularDamping:.18});
+   const body=new Body({mass:w*h*depth*3*stage.material.resistance,material:wood,shape:new Box(new Vec3(w/2,h/2,depth/2)),position:new Vec3(x,SHELF_Y+y,0),linearDamping:.12,angularDamping:.18});
    const piece:Piece={id:this.pieces.length+1,width:w,height:h,depth,level,body,cleared:false};
    this.pieces.push(piece);this.world.addBody(body);
   };
-  add(-.68,.36,.28,.72,3,options.supportDepth??.48);add(.68,.36,.28,.72,3,options.supportDepth??.48);
-  add(0,.90,2.10,.36,3);
-  for(const x of [-.60,0,.60])add(x,1.26,.56,.36,2);
-  if(options.columns??true){for(const x of [-.60,0,.60])add(x,1.62,.56,.36,1);}
-  else{for(const x of [-.30,.30])add(x,1.62,.56,.36,1);add(0,1.98,.56,.36,1);}
+  for(const block of stageBlocks(stage.id)){
+   add(block.x,block.y,block.width,block.height,block.level,block.id<=2?(options.supportDepth??block.depth):block.depth);
+  }
   for(let i=0;i<180;i++)this.step();
  }
  get active(){return this.pieces.filter(p=>!p.cleared)}

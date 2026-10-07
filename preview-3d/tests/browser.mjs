@@ -1,3 +1,5 @@
+import {makeQuestion} from "../src/questions.ts";
+import {STAGES,blockLevel,PROGRESS_KEY} from "../src/stages.ts";
 import {chromium} from "playwright";
 import {spawn} from "node:child_process";
 import {mkdir} from "node:fs/promises";
@@ -22,19 +24,29 @@ try{
   const before=Number(await page.getByTestId("remaining").innerText());
   await page.locator('.block-buttons button').filter({hasText:new RegExp("^"+id+"$")}).click();
   await page.getByRole("button",{name:"문제 풀고 공격하기"}).click();
-  const prompt=await page.locator(".question-text").innerText(),[total,size,part]=prompt.match(/\d+/g).map(Number);
+  const stageId=Number(await page.getByLabel("단계 선택",{exact:true}).inputValue());
+  const seed=Number(await page.locator(".question-text").getAttribute("data-question-id"));
+  const q=makeQuestion(stageId,blockLevel(stageId,id),seed);
+  assert.equal(await page.locator(".question-text").innerText(),q.prompt);
+  if(q.expression)assert.equal(await page.getByTestId("expression").locator("[data-math]").getAttribute("data-math"),q.expression);
   if(wrong){
    await page.getByLabel("분자",{exact:true}).fill("99");await page.getByLabel("분모",{exact:true}).fill("7");await page.getByRole("button",{name:"정답 확인"}).click();
    assert.equal(await page.getByRole("button",{name:"대포 발사!"}).count(),0);
   }
-  const denominator=total/size,numerator=prompt.includes("넣지 않은")?denominator-part:part/size;
-  await page.getByLabel("분자",{exact:true}).fill(String(numerator));await page.getByLabel("분모",{exact:true}).fill(String(denominator));await page.getByRole("button",{name:"정답 확인"}).click();
+  if(q.kind==="fraction"||q.kind==="mixed"){
+   const [wholePart,fractionPart]=q.kind==="mixed"?q.answer.split(" "):["",q.answer];
+   const [n,d]=fractionPart.split("/");
+   if(q.kind==="mixed")await page.getByLabel("자연수 부분",{exact:true}).fill(wholePart);
+   await page.getByLabel("분자",{exact:true}).fill(n);await page.getByLabel("분모",{exact:true}).fill(d);
+  }else if(q.kind==="number")await page.getByLabel("장수",{exact:true}).fill(q.answer);
+  else await page.getByRole("radio").nth(q.choices.indexOf(q.answer)).check();
+  await page.getByRole("button",{name:"정답 확인"}).click();
   await page.getByRole("button",{name:"대포 발사!"}).click();
   await page.getByText("블록이 멈출 때까지 기다려 주세요.",{exact:true}).waitFor();
   assert.equal(await page.locator(".block-buttons button:enabled").count(),0);
   const started=Date.now();await idle();
   const remaining=Number(await page.getByTestId("remaining").innerText());
-  console.log("BROWSER_SHOT:"+JSON.stringify({id,before,remaining,waitMs:Date.now()-started}));
+  console.log("BROWSER_SHOT:"+JSON.stringify({stage:stageId,id,kind:q.kind,before,remaining,waitMs:Date.now()-started}));
   return remaining;
  }
  await fireAt(5,true);
@@ -81,8 +93,40 @@ try{
  await page.screenshot({path:"test-results/3d-mobile.png",fullPage:true});
  console.log("PREVIEW_MOBILE_IMAGE:"+(await page.locator(".arena").screenshot({type:"jpeg",quality:65})).toString("base64"));
  await page.getByRole("button",{name:"처음부터 다시",exact:true}).click();await page.waitForFunction(()=>document.querySelector('[data-testid="remaining"]').textContent==="9");
+
+ // Complete and advance all stages through the same question/fire UI.
+ async function finishCurrent(){
+  let attempts=0;
+  while(Number(await page.getByTestId("remaining").innerText())>0&&attempts<35){
+   const ids=(await page.locator(".block-buttons button").allTextContents()).map(Number);
+   const id=ids.includes(3)?3:ids.find(id=>id>3)??ids[0];
+   await fireAt(id);attempts++;
+  }
+  assert.equal(await page.getByTestId("remaining").innerText(),"0","Every stage must reach the success screen");
+ }
+ await finishCurrent();
+ for(let stageId=2;stageId<=12;stageId++){
+  await page.getByRole("button",{name:"다음 단계로",exact:true}).click();await idle();
+  assert.equal(await page.getByLabel("단계 선택",{exact:true}).inputValue(),String(stageId));
+  assert.equal(Number(await page.getByTestId("remaining").innerText()),STAGES[stageId-1].count);
+  assert.equal(await page.locator("canvas").count(),1,"Stage transition must dispose the old renderer");
+  // Stage 7 checks easy classification, mixed-answer input, then challenge conversion.
+  if(stageId===7){await fireAt(9);await fireAt(4);}
+  else await fireAt(5);
+  await finishCurrent();
+  if([4,7,10,12].includes(stageId))await page.screenshot({path:"test-results/stage-"+stageId+".png",fullPage:true});
+ }
+ await page.getByRole("heading",{name:"12단계 모두 성공!"}).waitFor();
+ assert.equal(await page.getByRole("button",{name:"다음 단계로",exact:true}).count(),0);
+ const saved=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),PROGRESS_KEY);
+ assert.equal(saved.completed.length,12);assert.equal(saved.unlocked,12);
+ await page.reload();await idle();
+ assert.equal(await page.getByLabel("단계 선택",{exact:true}).inputValue(),"12");
+ await page.getByLabel("단계 선택",{exact:true}).selectOption("7");await idle();
+ assert.equal(Number(await page.getByTestId("remaining").innerText()),11);
+ console.log("CAMPAIGN_CHECK:"+JSON.stringify({completed:12,persisted:true,replay:true,formats:4}));
  assert.equal(await page.locator("canvas").count(),1);assert.deepEqual(errors,[]);
- console.log(JSON.stringify({passed:true,checks:["real WebGL canvas","wrong/right answers","middle hit","repeated shots","top-first settling","completion at zero","debris cannot be selected","mobile width","reset disposal"],errors}));
+ console.log(JSON.stringify({passed:true,checks:["real WebGL canvas","wrong/right answers","middle hit","repeated shots","top-first settling","completion at zero","debris cannot be selected","12-stage campaign","all question formats","saved progress","mobile width","reset disposal"],errors}));
 }catch(error){
  if(page){console.log("BROWSER_FAILURE:"+JSON.stringify(await page.locator("body").innerText()));console.log("PREVIEW_FAILURE_IMAGE:"+(await page.locator(".arena").screenshot({type:"jpeg",quality:65})).toString("base64"));}
  throw error;

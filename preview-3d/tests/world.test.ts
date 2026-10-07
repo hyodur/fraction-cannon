@@ -1,7 +1,8 @@
+import {STAGES,MATERIALS,stageBlocks,readProgress,completeStage} from "../src/stages.ts";
 import assert from "node:assert/strict";
 import {Vec3} from "cannon-es";
 import {BlockWorld,STEP,SHELF_Y,CLEAR_Y} from "../src/world.ts";
-import {makeQuestion,isCorrect} from "../../lib/questions.ts";
+import {makeQuestion,isCorrect} from "../src/questions.ts";
 const muzzle={x:0,y:1.65,z:5};
 function settle(w:BlockWorld){
  let ticks=0;
@@ -98,3 +99,62 @@ for(const offset of [-.08,0,.08]){
 }
 for(let seed=1;seed<=100;seed++)for(const level of [1,2,3] as const){const q=makeQuestion(1,level,seed);assert.equal(q.kind,"fraction");assert(isCorrect(q,q.answer));assert(!isCorrect(q,"999/0"));assert(!q.prompt.includes("없음"));}
 console.log(JSON.stringify({passed:true,balanceCases:targets.length,normalMin:Math.min(...targets.map(t=>t.removed)),normalMax:Math.max(...targets.map(t=>t.removed)),challengeRemoved:9-bridge.active.length,sequences,step:STEP,questions:300}));
+
+const stageRuns=[];
+for(const stage of STAGES){
+ const w=new BlockWorld({stage:stage.id});settle(w);
+ assert.equal(w.active.length,stage.count,"Stage must not fall before the first shot");
+ assert.equal(stageBlocks(stage.id).length,stage.count);
+ assert(Math.abs(w.pieces[3].body.mass/(.56*.36*.48*3)-stage.material.resistance)<1e-12);
+ let shots=0,maxWait=0;
+ // A normal target must still give progress as new materials arrive.
+ while(w.active.some(p=>p.id===5)&&shots<3){shoot(w,5);maxWait=Math.max(maxWait,settle(w));shots++;}
+ assert(w.active.length<stage.count,"A normal hit cannot be futile at stage "+stage.id);
+ for(const id of [3,...w.active.filter(p=>p.id>3).map(p=>p.id),1,2]){
+  for(let attempts=0;attempts<4&&w.active.some(p=>p.id===id);attempts++){
+   shoot(w,id);maxWait=Math.max(maxWait,settle(w));shots++;
+  }
+ }
+ assert.equal(w.active.length,0,"Stage "+stage.id+" must be clearable without attacking debris");
+ assert(shots<=stage.count*2,"Stage "+stage.id+" needs too many questions");
+ stageRuns.push({stage:stage.id,material:stage.material.id,count:stage.count,shots,maxWait});
+}
+for(let i=0;i<12;i++){
+ if(i%3!==0){assert.equal(STAGES[i].material,STAGES[i-1].material);assert.equal(STAGES[i].count,STAGES[i-1].count+1);}
+ else if(i>0){assert.equal(STAGES[i].count,STAGES[i-1].count-1);assert(STAGES[i].material.resistance-STAGES[i-1].material.resistance<.081);}
+}
+let progress=readProgress(null);assert.equal(progress.unlocked,1);
+assert.deepEqual(completeStage(progress,2),progress,"Locked stages cannot unlock later ones");
+for(let id=1;id<=12;id++){progress=completeStage(progress,id);assert.equal(progress.unlocked,Math.min(12,id+1));}
+assert.equal(progress.completed.length,12);
+assert.deepEqual(readProgress("broken"),readProgress(null));
+assert.equal(readProgress('{"current":99,"completed":[12,-1,"1"]}').unlocked,1);
+assert.equal(readProgress(JSON.stringify({...progress,current:7})).current,7);
+// Independent arithmetic oracles for every question format and gradual number limits.
+const formats=new Set<string>();
+for(const stage of STAGES)for(const level of [1,2,3] as const)for(let seed=1;seed<=100;seed++){
+ const q=makeQuestion(stage.id,level,seed);formats.add(q.kind);
+ assert(isCorrect(q,q.answer));assert(!isCorrect(q,"999/0"));assert(!q.prompt.includes("없음"));
+ assert(!/통분|약분|분수의 덧셈|분수의 뺄셈|분수의 곱셈|분수의 나눗셈/.test(q.prompt));
+ const value=(s:string)=>{const m=/^(?:(\d+) )?(\d+)\/(\d+)$/.exec(s)!;return Number(m[1]||0)+Number(m[2])/Number(m[3]);};
+ if(stage.id<=3){
+  const nums=q.prompt.match(/\d+/g)!.map(Number),[total,size,part]=nums;
+  const expected=level===3?(total/size-part)/(total/size):part/total;
+  assert(Math.abs(value(q.answer)-expected)<1e-10);
+  assert(total/size<=[4,5,7][stage.step]);
+ }else if(stage.id<=6){
+  const nums=q.prompt.match(/\d+/g)!.map(Number),total=nums[0],d=nums[1],k=nums.at(-1)!;
+  assert.equal(Number(q.answer),level===3?total-total/d*k:total/d*k);
+ }else if(stage.id<=9){
+  assert(q.expression);
+  if(q.kind==="choice"){const [n,d]=q.expression.split("/").map(Number);assert.equal(q.answer,n<d?"진분수":"가분수");}
+  else assert(Math.abs(value(q.expression)-value(q.answer))<1e-10);
+ }else{
+  assert(q.choices?.length===2);
+  const a=q.choices[0],b=q.choices[1],da=Number(a.split("/")[1]),db=Number(b.split("/")[1]);
+  assert.equal(da,db,"Comparison must not require finding common denominators");
+  assert.equal(q.answer,value(a)>value(b)?a:b);
+ }
+}
+assert.deepEqual([...formats].sort(),["choice","fraction","mixed","number"]);
+console.log("TWELVE_STAGES:"+JSON.stringify({passed:true,stageRuns,questions:3600,formats:[...formats],progress:progress.completed.length}));

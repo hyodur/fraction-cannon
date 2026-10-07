@@ -1,3 +1,4 @@
+import {getStage} from "./stages";
 import * as THREE from "three";
 import {RoundedBoxGeometry} from "three/addons/geometries/RoundedBoxGeometry.js";
 import {BlockWorld,SHELF_Y,SHELF_THICKNESS,STEP} from "./world";
@@ -8,7 +9,7 @@ export class CannonScene{
  private renderer:THREE.WebGLRenderer;
  private scene=new THREE.Scene();
  private camera=new THREE.PerspectiveCamera(43,1,.1,60);
- private simulation=new BlockWorld();
+ private simulation:BlockWorld;
  private meshes=new Map<number,THREE.Mesh>();
  private barrel=new THREE.Group();
  private ball=new THREE.Mesh(new THREE.SphereGeometry(.085,20,16),new THREE.MeshStandardMaterial({color:0x303d46,metalness:.8,roughness:.28}));
@@ -26,7 +27,8 @@ export class CannonScene{
  private textures=new Set<THREE.Texture>();
  private events:SceneEvents;
  private canSelect:()=>boolean;
- constructor(private host:HTMLElement,events:SceneEvents,canSelect:()=>boolean){
+ constructor(private host:HTMLElement,events:SceneEvents,canSelect:()=>boolean,stageId=1){
+  const stage=getStage(stageId);this.simulation=new BlockWorld({stage:stageId});
   this.events=events;this.canSelect=canSelect;
   this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:"high-performance"});
   this.renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.7));
@@ -50,7 +52,7 @@ export class CannonScene{
   }
   const woodTexture=this.woodTexture();
   for(const piece of this.simulation.pieces){
-   const material=new THREE.MeshStandardMaterial({color:piece.level===3?0xb67c40:0xd3a15f,map:woodTexture,bumpMap:woodTexture,bumpScale:.009,roughness:.79,metalness:0});
+   const material=new THREE.MeshStandardMaterial({color:new THREE.Color(stage.material.color).multiplyScalar(piece.level===3?.86:1),map:stage.material.id==="wood"?woodTexture:null,bumpMap:woodTexture,bumpScale:stage.material.id==="iron"?.002:.009,roughness:stage.material.roughness,metalness:stage.material.metalness});
    const mesh=new THREE.Mesh(new RoundedBoxGeometry(piece.width-.004,piece.height-.004,piece.depth-.004,3,.018),material);
    mesh.userData.blockId=piece.id;mesh.castShadow=true;mesh.receiveShadow=true;
    const label=this.numberLabel(piece.id);label.position.set(0,0,piece.depth/2+.005);mesh.add(label);
