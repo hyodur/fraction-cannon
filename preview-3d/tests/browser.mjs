@@ -13,6 +13,7 @@ try{
  await page.waitForFunction(()=>!document.querySelector('[aria-label="9번 블록, 쉬움"]').disabled);
  assert.equal(await page.locator("canvas").count(),1,"StrictMode must not leave duplicate canvases");
  await mkdir("test-results",{recursive:true});await page.screenshot({path:"test-results/3d-desktop.png",fullPage:true});
+ console.log("PREVIEW_DESKTOP_IMAGE:"+(await page.locator(".arena").screenshot({type:"jpeg",quality:65})).toString("base64"));
  await page.getByRole("button",{name:"9번 블록, 쉬움"}).click();await page.getByRole("button",{name:"문제 풀고 공격하기"}).click();
  const prompt=await page.locator(".question-text").innerText(),[total,size,part]=prompt.match(/\d+/g).map(Number);
  await page.getByLabel("분자",{exact:true}).fill("99");await page.getByLabel("분모",{exact:true}).fill("7");await page.getByRole("button",{name:"정답 확인"}).click();
@@ -27,6 +28,7 @@ try{
  await page.screenshot({path:"test-results/3d-after-fall.png",fullPage:true});
  await page.setViewportSize({width:390,height:844});await page.waitForTimeout(500);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.screenshot({path:"test-results/3d-mobile.png",fullPage:true});
+ console.log("PREVIEW_MOBILE_IMAGE:"+(await page.locator(".arena").screenshot({type:"jpeg",quality:65})).toString("base64"));
  await page.getByRole("button",{name:"처음부터 다시",exact:true}).click();await page.waitForFunction(()=>document.querySelector('[data-testid="remaining"]').textContent==="9");
  assert.equal(await page.locator("canvas").count(),1);assert.deepEqual(errors,[]);
  console.log(JSON.stringify({passed:true,checks:["real WebGL canvas","wrong/right answers","locked flight","3D fall","settling","mobile width","reset disposal"],errors}));
