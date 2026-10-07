@@ -38,7 +38,7 @@ export class CannonScene{
   this.camera.position.set(.15,4.3,10);this.camera.lookAt(0,2.1,0);
   this.scene.add(new THREE.HemisphereLight(0xf5faff,0x6d6651,2.3));
   const sun=new THREE.DirectionalLight(0xffedcb,3.7);sun.position.set(-4,9,5);sun.castShadow=true;
-  sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-6,right:6,top:8,bottom:-5,near:.1,far:25});
+  sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-6,right:6,top:8,bottom:-5,near:.1,far:25});
   sun.shadow.normalBias=.025;sun.shadow.bias=-.0002;this.scene.add(sun);
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshStandardMaterial({color:0xabb49e,roughness:1}));
   ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;this.scene.add(ground);
@@ -140,7 +140,7 @@ export class CannonScene{
  private tick=(time:number)=>{
   if(this.disposed)return;
   if(document.hidden){this.previous=0;this.frame=requestAnimationFrame(this.tick);return;}
-  const delta=this.previous?Math.min((time-this.previous)/1000,.08):0;this.previous=time;
+  const delta=this.previous?Math.min((time-this.previous)/1000,.25):0;this.previous=time;
   if(this.flight){
    this.flight.elapsed+=delta;const t=Math.min(1,this.flight.elapsed/.38);
    this.ball.position.lerpVectors(MUZZLE,this.flight.end,t);this.ball.position.y+=.12*Math.sin(Math.PI*t);
