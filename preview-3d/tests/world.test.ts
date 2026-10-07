@@ -127,7 +127,7 @@ for(const stage of STAGES){
 }
 for(let i=0;i<12;i++){
  if(i%3!==0){assert.equal(STAGES[i].material,STAGES[i-1].material);assert.equal(STAGES[i].count,STAGES[i-1].count+1);}
- else if(i>0){assert.equal(STAGES[i].count,STAGES[i-1].count-1);assert(STAGES[i].material.resistance-STAGES[i-1].material.resistance<.041);}
+ else if(i>0){assert.equal(STAGES[i].count,STAGES[i-1].count-1);assert(STAGES[i].material.resistance-STAGES[i-1].material.resistance<.021);}
 }
 let progress=readProgress(null);assert.equal(progress.unlocked,1);
 assert.deepEqual(completeStage(progress,2),progress,"Locked stages cannot unlock later ones");
@@ -177,6 +177,6 @@ for(const stage of [1,4,7,10])for(const x of [-.08,0,.08])for(const y of [-.08,0
  if(firstRemoved>=5)balanceProblems.push("First central beam shot must not trigger a full core collapse: "+JSON.stringify(result));
  if(!result.beamCleared)balanceProblems.push("Repeated beam shots must remain effective in every material: "+JSON.stringify(result));
 }
-console.log("BEAM_BALANCE_PASSED:"+beamRuns.length);
+console.log("BEAM_BALANCE_CASES:"+beamRuns.length);
 
 assert.deepEqual(balanceProblems,[],"All aim positions must remain balanced");

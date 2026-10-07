@@ -9,7 +9,7 @@ export const BALL_MASS=.65;
 export const BALL_SPEED=8;
 // Fixed density for every block of a material; increased inertia prevents a
 // fully loaded beam from collapsing the tower with its first central hit.
-export const BLOCK_DENSITY=4.05;
+export const BLOCK_DENSITY=4.38;
 export function impactImpulse(mass:number,speed=BALL_SPEED){return 1.1*BALL_MASS*mass/(BALL_MASS+mass)*speed;}
 export type Point={x:number;y:number;z:number};
 export type Piece={id:number;width:number;height:number;depth:number;level:1|2|3;body:Body;cleared:boolean};
