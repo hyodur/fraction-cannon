@@ -1,21 +1,24 @@
 import {Body,Box,ContactMaterial,GSSolver,Material,Vec3,World} from "cannon-es";
 export const SHELF_Y=2.2;
 export const STEP=1/120;
-export const IMPULSE=1.25;
+export const IMPULSE=2.6;
 export type Point={x:number;y:number;z:number};
 export type Piece={id:number;width:number;height:number;depth:number;level:1|2|3;body:Body;cleared:boolean};
 export class BlockWorld{
  world:World;
  pieces:Piece[]=[];
  moving=true;
- private quiet=0;
+ private time=0;
+ private quietSince=0;
+ private anchors=new Map<number,{position:Vec3;quaternion:Body["quaternion"]}>();
+ private lastSupported=new Map<Body,number>();
  private statics:Body[]=[];
  constructor(){
   this.world=new World({gravity:new Vec3(0,-9.82,0),allowSleep:false});
   (this.world.solver as GSSolver).iterations=20;
   const wood=new Material("wood"),support=new Material("support");
-  this.world.addContactMaterial(new ContactMaterial(wood,wood,{friction:.36,restitution:.035}));
-  this.world.addContactMaterial(new ContactMaterial(wood,support,{friction:.38,restitution:.025}));
+  this.world.addContactMaterial(new ContactMaterial(wood,wood,{friction:.28,restitution:.035}));
+  this.world.addContactMaterial(new ContactMaterial(wood,support,{friction:.32,restitution:.025}));
   const fixed=(x:number,y:number,z:number,w:number,h:number,d:number)=>{
    const body=new Body({mass:0,material:support,shape:new Box(new Vec3(w/2,h/2,d/2)),position:new Vec3(x,y,z)});
    this.statics.push(body);this.world.addBody(body);
@@ -42,11 +45,21 @@ export class BlockWorld{
   const impulse=new Vec3(point.x-muzzle.x,point.y-muzzle.y,point.z-muzzle.z);
   impulse.normalize();impulse.scale(IMPULSE,impulse);
   const offset=new Vec3(point.x-piece.body.position.x,point.y-piece.body.position.y,point.z-piece.body.position.z);
-  piece.body.applyImpulse(impulse,offset);this.moving=true;this.quiet=0;
+  piece.body.applyImpulse(impulse,offset);this.moving=true;this.resetQuiet();
   return true;
  }
+ frontPoint(id:number,x=0,y=0):Point{
+  const p=this.active.find(p=>p.id===id);
+  if(!p)throw new Error("Unknown active block: "+id);
+  return p.body.pointToWorldFrame(new Vec3(x,y,p.depth/2));
+ }
+ private resetQuiet(){
+  this.quietSince=this.time;
+  this.anchors.clear();
+  for(const p of this.active)this.anchors.set(p.id,{position:p.body.position.clone(),quaternion:p.body.quaternion.clone()});
+ }
  private supported(){
-  // Contact graph is rebuilt every step. No sleeping bodies or stale supports.
+  // Contacts can disappear for a single solver step while boxes rest together.
   const seen=new Set(this.statics),links=new Map<Body,Set<Body>>();
   for(const c of this.world.contacts){
    if(!links.has(c.bi))links.set(c.bi,new Set());
@@ -57,20 +70,30 @@ export class BlockWorld{
   for(let i=0;i<queue.length;i++)for(const b of links.get(queue[i])||[]){
    if(!seen.has(b)){seen.add(b);queue.push(b);}
   }
-  return this.pieces.every(p=>seen.has(p.body));
+  for(const body of seen)this.lastSupported.set(body,this.time);
+  return this.active.every(p=>this.time-(this.lastSupported.get(p.body)??-Infinity)<.12);
  }
  step(){
-  if(!this.moving)return [];
-  this.world.step(STEP);
+  // Keep gravity running after controls unlock, including for cleared floor debris.
+  this.world.step(STEP);this.time+=STEP;
   const fallen:number[]=[];
   for(const p of this.pieces){
    p.body.updateAABB();
    if(!p.cleared&&p.body.aabb.upperBound.y<.65){p.cleared=true;fallen.push(p.id);}
   }
-  const slow=this.pieces.every(p=>p.body.velocity.lengthSquared()<.0016&&p.body.angularVelocity.lengthSquared()<.0064);
-  this.quiet=slow&&this.supported()?this.quiet+STEP:0;
-  // Only freeze a genuinely supported resting scene, never at a time limit.
-  if(this.quiet>.75)this.moving=false;
+  if(this.moving){
+   const supported=this.supported();
+   const stable=this.active.every(p=>{
+    const anchor=this.anchors.get(p.id);if(!anchor)return false;
+    const q=p.body.quaternion,a=anchor.quaternion;
+    const dot=Math.abs(q.x*a.x+q.y*a.y+q.z*a.z+q.w*a.w);
+    return p.body.position.distanceSquared(anchor.position)<.012**2&&dot>Math.cos(.035/2);
+   });
+   // Measure actual displacement over a supported rest window. Solver velocity
+   // noise and debris that has already fallen must not lock the next question.
+   if(!stable||!supported)this.resetQuiet();
+   if(this.time-this.quietSince>.6)this.moving=false;
+  }
   return fallen;
  }
 }

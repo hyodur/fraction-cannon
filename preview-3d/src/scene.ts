@@ -113,7 +113,7 @@ export class CannonScene{
   const piece=this.simulation.active.find(p=>p.id===id);if(!piece)return;
   this.selected=id;
   // Keyboard selection aims at the center of the front face.
-  const center=this.meshes.get(id)!.localToWorld(new THREE.Vector3(0,0,piece.depth/2));
+  const front=this.simulation.frontPoint(id),center=new THREE.Vector3(front.x,front.y,front.z);
   this.hitPoint.copy(point||center);this.reticle.position.copy(this.hitPoint);this.reticle.lookAt(this.camera.position);this.reticle.visible=true;
   this.aim(this.hitPoint);this.highlight();this.events.select(id);
  }

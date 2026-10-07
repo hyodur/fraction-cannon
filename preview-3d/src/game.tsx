@@ -43,7 +43,6 @@ export function Game(){
   if(!mutedRef.current)playGameTone(audio,130,.28);
  }
  function reset(){
-  if(busyRef.current)return;
   questionRef.current=null;setQuestion(null);setTarget(null);setReady(false);setShots(0);setMistakes(0);setError("");setGraphics(false);busyRef.current=true;setBusy(true);setMessage("새로운 작전을 세워 보세요.");setRound(n=>n+1);
  }
  function sound(){
@@ -68,6 +67,6 @@ export function Game(){
     <p className="feedback" aria-live="polite">{message}</p>
    </aside>
   </div>
-  <footer><p>3D 체험 기록은 전국 랭킹에 등록되지 않아요.</p><button className="quiet-button" disabled={busy||!!question||!graphics} onClick={reset}>처음부터 다시</button></footer>
+  <footer><p>3D 체험 기록은 전국 랭킹에 등록되지 않아요.</p><button className="quiet-button" disabled={!graphics} onClick={reset}>처음부터 다시</button></footer>
  </main>;
 }
