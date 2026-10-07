@@ -112,7 +112,7 @@ for(const stage of STAGES){
  assert(w.active.length<stage.count,"A normal hit cannot be futile at stage "+stage.id);
  for(const id of [3,...w.active.filter(p=>p.id>3).map(p=>p.id),1,2]){
   for(let attempts=0;attempts<4&&w.active.some(p=>p.id===id);attempts++){
-   shoot(w,id);maxWait=Math.max(maxWait,settle(w));shots++;
+   assert(shoot(w,id));maxWait=Math.max(maxWait,settle(w));shots++;
   }
  }
  console.log("STAGE_RESULT:"+JSON.stringify({stage:stage.id,shots,maxWait,remaining:w.active.map(p=>({id:p.id,pos:p.body.position.toArray(),q:p.body.quaternion.toArray()}))}));

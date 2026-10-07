@@ -21,11 +21,12 @@ export function stageBlocks(stageId:number):BlockSpec[]{
  // Keep the tested central structure intact; add small side stacks gradually.
  for(let row=0;row<2;row++)for(const x of [-.60,0,.60])
   blocks.push({id:blocks.length+1,x,y:1.26+.36*row,width:.56,height:.36,depth:.48,level:row===1?1:2});
- const extra=stage.count-9,heights=[Math.ceil(extra/2),Math.floor(extra/2)];
+ const extra=stage.count-9,sideCount=Math.min(extra,4),heights=[Math.ceil(sideCount/2),Math.floor(sideCount/2)];
  for(let row=0;row<Math.max(...heights);row++)for(let col=0;col<2;col++){
   if(row>=heights[col])continue;
   blocks.push({id:blocks.length+1,x:col===0?-1.42:1.42,y:.18+.36*row,width:.36,height:.36,depth:.48,level:row===heights[col]-1?1:2});
  }
+ if(extra>4)blocks.push({id:blocks.length+1,x:0,y:.18,width:.36,height:.36,depth:.48,level:1});
  return blocks;
 }
 export function blockLevel(stageId:number,id:number):BlockLevel{return stageBlocks(stageId).find(b=>b.id===id)?.level??1;}
